@@ -47,9 +47,11 @@ public class AuthController {
 
         return ResponseEntity.ok(Map.of(
                 "message", "登录成功",
-                "userId", user.getId(),
-                "username", user.getUsername(),
-                "email", user.getEmail()
+                "user", Map.of(
+                        "id", user.getId(),
+                        "username", user.getUsername(),
+                        "email", user.getEmail()
+                )
         ));
     }
 }

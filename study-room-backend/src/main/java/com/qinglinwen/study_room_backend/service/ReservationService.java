@@ -4,15 +4,12 @@ import com.qinglinwen.study_room_backend.dto.ReservationRequest;
 import com.qinglinwen.study_room_backend.entity.Reservation;
 import com.qinglinwen.study_room_backend.entity.Seat;
 import com.qinglinwen.study_room_backend.entity.StudyRoom;
-import com.qinglinwen.study_room_backend.entity.User;
 import com.qinglinwen.study_room_backend.repository.ReservationRepository;
 import com.qinglinwen.study_room_backend.repository.SeatRepository;
 import com.qinglinwen.study_room_backend.repository.StudyRoomRepository;
-import com.qinglinwen.study_room_backend.repository.UserRepository;
 import com.qinglinwen.study_room_backend.vo.ReservationVO;
 import com.qinglinwen.study_room_backend.vo.SeatStatusVO;
 import jakarta.transaction.Transactional;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -24,23 +21,13 @@ public class ReservationService {
     private final ReservationRepository reservationRepository;
     private final SeatRepository seatRepository;
     private final StudyRoomRepository studyRoomRepository;
-    private final UserRepository userRepository;
 
     public ReservationService(ReservationRepository reservationRepository,
                               SeatRepository seatRepository,
-                              StudyRoomRepository studyRoomRepository,
-                              UserRepository userRepository) {
+                              StudyRoomRepository studyRoomRepository) {
         this.reservationRepository = reservationRepository;
         this.seatRepository = seatRepository;
         this.studyRoomRepository = studyRoomRepository;
-        this.userRepository = userRepository;
-    }
-
-    public Long getCurrentUserId(Authentication authentication) {
-        String email = authentication.getName();
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("当前用户不存在"));
-        return user.getId();
     }
 
     public List<SeatStatusVO> getSeatStatus(Long roomId, ReservationRequest req) {
