@@ -1,44 +1,84 @@
-a<!-- src/App.vue -->
 <script setup>
-import { RouterLink, RouterView } from 'vue-router'
+import { computed } from 'vue'
+import { RouterLink, RouterView, useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+
+const route = useRoute()
+const authStore = useAuthStore()
+
+const isAuthPage = computed(() => route.name === 'login' || route.name === 'register')
 </script>
 
 <template>
-  <header>
-    <div class="wrapper">
-      <nav>
-        <!-- 我们将默认的 Home 和 About 链接替换为登录和注册 -->
-        <RouterLink to="/login">登录</RouterLink>
-        <RouterLink to="/register">注册</RouterLink>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <RouterLink to="/dashboard">自习室预约系统</RouterLink>
+      </div>
+      <nav class="nav-links">
+        <template v-if="authStore.isAuthenticated">
+          <RouterLink to="/dashboard">首页</RouterLink>
+          <RouterLink to="/rooms">自习室列表</RouterLink>
+          <RouterLink to="/my-reservations">我的预约</RouterLink>
+        </template>
+        <template v-else>
+          <RouterLink to="/login">登录</RouterLink>
+          <RouterLink to="/register">注册</RouterLink>
+        </template>
       </nav>
-    </div>
-  </header>
+    </header>
 
-  <!-- RouterView 会根据当前 URL 渲染对应的页面组件 -->
-  <RouterView />
+    <main :class="['page-container', { compact: isAuthPage }]">
+      <RouterView />
+    </main>
+  </div>
 </template>
 
 <style scoped>
-/* 这里可以保留或修改默认样式，让导航栏更好看 */
-header {
-  line-height: 1.5;
-  max-height: 100vh;
+.app-shell {
+  min-height: 100vh;
+  background: #f5f7fb;
+  color: #1f2937;
 }
 
-nav {
-  width: 100%;
-  font-size: 1rem;
-  text-align: center;
-  margin-top: 2rem;
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
 }
 
-nav a {
-  display: inline-block;
-  padding: 0 1rem;
-  border-left: 1px solid var(--color-border);
+.brand a {
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+  text-decoration: none;
 }
 
-nav a:first-of-type {
-  border: 0;
+.nav-links {
+  display: flex;
+  gap: 16px;
+}
+
+.nav-links a {
+  color: #4b5563;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.nav-links a.router-link-active {
+  color: #2563eb;
+}
+
+.page-container {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 32px 20px 48px;
+}
+
+.page-container.compact {
+  max-width: 520px;
 }
 </style>

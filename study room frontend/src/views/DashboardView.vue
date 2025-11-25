@@ -7,38 +7,101 @@ const authStore = useAuthStore()
 const router = useRouter()
 
 const displayName = computed(() => authStore.user?.username || authStore.user?.email || '用户')
-const userId = computed(() => authStore.user?.id ?? '-')
-const userEmail = computed(() => authStore.user?.email || '-')
+const todaySummary = computed(() => [
+  { title: '自习室列表', description: '查看可用自习室、位置与后续可扩展的容量信息。', action: '进入列表', routeName: 'rooms' },
+  { title: '我的预约', description: '查看当前账号的预约记录，下一阶段接入真实预约明细。', action: '查看预约', routeName: 'my-reservations' }
+])
 
 const handleLogout = () => {
   authStore.clearAuth()
-  alert('您已成功登出。')
   router.push({ name: 'login' })
+}
+
+const goTo = (routeName) => {
+  router.push({ name: routeName })
 }
 </script>
 
 <template>
-  <div>
-    <h1>欢迎来到仪表盘</h1>
-    <p>这是一个受保护的页面，只有登录用户才能看到。</p>
-    <p>当前登录用户：{{ displayName }}</p>
-    <p>用户 ID：{{ userId }}</p>
-    <p>邮箱：{{ userEmail }}</p>
-    <button @click="handleLogout">登出</button>
-  </div>
+  <section class="dashboard">
+    <div class="hero-card">
+      <div>
+        <p class="eyebrow">业务入口</p>
+        <h1>欢迎回来，{{ displayName }}</h1>
+        <p class="hero-text">
+          当前阶段已完成系统稳定化与业务骨架整理。你可以从这里进入自习室列表、我的预约，后续功能会在此基础上逐步接入。
+        </p>
+      </div>
+      <button class="logout-button" @click="handleLogout">退出登录</button>
+    </div>
+
+    <div class="entry-grid">
+      <article v-for="item in todaySummary" :key="item.routeName" class="entry-card">
+        <h2>{{ item.title }}</h2>
+        <p>{{ item.description }}</p>
+        <button @click="goTo(item.routeName)">{{ item.action }}</button>
+      </article>
+    </div>
+  </section>
 </template>
 
 <style scoped>
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.hero-card,
+.entry-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+
+.hero-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+.hero-text,
+.entry-card p {
+  color: #4b5563;
+  line-height: 1.6;
+}
+
+.entry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+
 button {
-  margin-top: 20px;
-  padding: 10px 20px;
-  background-color: #f44336;
-  color: white;
+  padding: 10px 16px;
   border: none;
-  border-radius: 4px;
+  border-radius: 10px;
+  background: #2563eb;
+  color: #ffffff;
   cursor: pointer;
 }
-button:hover {
-  background-color: #d32f2f;
+
+.logout-button {
+  background: #ef4444;
 }
 </style>

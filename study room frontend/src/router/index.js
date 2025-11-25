@@ -15,6 +15,24 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/rooms',
+      name: 'rooms',
+      component: () => import('@/views/RoomsView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/rooms/:id',
+      name: 'room-detail',
+      component: () => import('@/views/RoomDetailView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/my-reservations',
+      name: 'my-reservations',
+      component: () => import('@/views/MyReservationsView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/login',
       name: 'login',
       component: () => import('@/views/LoginView.vue')
