@@ -1,6 +1,10 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import SeatMap from '@/components/SeatMap.vue'
+import SeatDetailDrawer from '@/components/SeatDetailDrawer.vue'
+import { getRoomMapConfig } from '@/config/roomMapConfig'
+import { createSeatMapLayout, getSeatEnvironmentTags } from '@/utils/seatMapLayout'
 import { createReservation, getRoomSeatStatus, getRooms } from '@/services/reservationApi'
 
 const route = useRoute()
@@ -13,6 +17,8 @@ const reservingSeatId = ref(null)
 const roomError = ref('')
 const seatError = ref('')
 const successMessage = ref('')
+const selectedSeat = ref(null)
+const drawerVisible = ref(false)
 
 const form = ref({
   reserveDate: '',
@@ -26,6 +32,22 @@ const hasQueried = ref(false)
 const availableSeats = computed(() =>
   seatStatusList.value.filter((seat) => seat.seatStatus === 1 && !seat.reserved)
 )
+
+const roomMapConfig = computed(() => getRoomMapConfig(roomId.value))
+const roomLayout = computed(() => createSeatMapLayout(seatStatusList.value, roomMapConfig.value))
+
+const selectedSeatEnvironment = computed(() => {
+  if (!selectedSeat.value) {
+    return []
+  }
+
+  const mappedSeat = roomLayout.value.seats.find((item) => item.seatId === selectedSeat.value.seatId)
+  if (!mappedSeat) {
+    return []
+  }
+
+  return getSeatEnvironmentTags(mappedSeat, roomLayout.value)
+})
 
 function buildPayload(seatId = null) {
   return {
@@ -69,7 +91,7 @@ async function loadRoom() {
   }
 }
 
-async function querySeatStatus() {
+async function querySeatStatus(options = {}) {
   successMessage.value = ''
   seatError.value = ''
 
@@ -83,6 +105,14 @@ async function querySeatStatus() {
   try {
     const { data } = await getRoomSeatStatus(roomId.value, buildPayload())
     seatStatusList.value = data
+
+    if (options.preserveSelectedSeat && selectedSeat.value) {
+      selectedSeat.value = data.find((item) => item.seatId === selectedSeat.value.seatId) || null
+      drawerVisible.value = Boolean(selectedSeat.value)
+    } else {
+      selectedSeat.value = null
+      drawerVisible.value = false
+    }
   } catch (error) {
     seatStatusList.value = []
     seatError.value = error.response?.data?.message || '查询座位状态失败，请稍后重试。'
@@ -91,9 +121,14 @@ async function querySeatStatus() {
   }
 }
 
-async function reserveSeat(seat) {
+async function reserveSeat(seat = selectedSeat.value) {
   successMessage.value = ''
   seatError.value = ''
+
+  if (!seat) {
+    seatError.value = '请先在地图上选择一个座位。'
+    return
+  }
 
   if (!validateTimeRange()) {
     return
@@ -104,7 +139,7 @@ async function reserveSeat(seat) {
   try {
     const { data } = await createReservation(buildPayload(seat.seatId))
     successMessage.value = `${seat.seatCode} 预约成功。${data.message || ''}`.trim()
-    await querySeatStatus()
+    await querySeatStatus({ preserveSelectedSeat: true })
   } catch (error) {
     seatError.value = error.response?.data?.message || '创建预约失败，请稍后重试。'
   } finally {
@@ -113,11 +148,22 @@ async function reserveSeat(seat) {
 }
 
 function seatStatusText(seat) {
+  if (!seat) {
+    return '未选择'
+  }
+
   if (seat.seatStatus !== 1) {
     return '不可用'
   }
 
   return seat.reserved ? '已被预约' : '空闲可预约'
+}
+
+function handleSelectSeat(seat) {
+  selectedSeat.value = seat
+  drawerVisible.value = true
+  successMessage.value = ''
+  seatError.value = ''
 }
 
 onMounted(() => {
@@ -162,7 +208,7 @@ onMounted(() => {
           </label>
         </div>
         <div class="actions">
-          <button class="primary-button" :disabled="loadingSeats || room.status !== 1" @click="querySeatStatus">
+          <button class="primary-button" :disabled="loadingSeats || room.status !== 1" @click="querySeatStatus()">
             {{ loadingSeats ? '查询中...' : '查询该时段座位状态' }}
           </button>
         </div>
@@ -174,39 +220,63 @@ onMounted(() => {
       <section class="panel">
         <div class="section-header">
           <div>
-            <h2>座位列表</h2>
-            <p v-if="hasQueried">当前可预约座位：{{ availableSeats.length }} 个</p>
-            <p v-else>请先选择时段并点击查询。</p>
+            <h2>2D 座位地图</h2>
+            <p v-if="hasQueried">当前可预约座位：{{ availableSeats.length }} 个。点击任意座位可查看详情、留言并尝试预约。</p>
+            <p v-else>请先选择时段并点击查询，随后在地图上点击任意座位查看详情。</p>
           </div>
         </div>
 
         <div v-if="loadingSeats" class="feedback inline">正在加载座位状态...</div>
         <div v-else-if="hasQueried && !seatStatusList.length" class="feedback inline">当前时段暂无座位数据。</div>
-        <div v-else-if="hasQueried" class="seat-grid">
-          <article
-            v-for="seat in seatStatusList"
-            :key="seat.seatId"
-            :class="['seat-card', { reserved: seat.reserved || seat.seatStatus !== 1 }]"
-          >
-            <div>
-              <h3>{{ seat.seatCode }}</h3>
-              <p>坐标：({{ seat.x }}, {{ seat.y }})</p>
+        <div v-else-if="hasQueried" class="map-layout">
+          <SeatMap
+            :room="room"
+            :seat-status-list="seatStatusList"
+            :map-config="roomMapConfig"
+            :selected-seat-id="selectedSeat?.seatId || null"
+            :reserving-seat-id="reservingSeatId"
+            @select-seat="handleSelectSeat"
+          />
+
+          <aside class="selection-panel">
+            <h3>选座概览</h3>
+            <div v-if="selectedSeat" class="selection-card">
+              <p><strong>座位号：</strong>{{ selectedSeat.seatCode }}</p>
+              <p><strong>状态：</strong>{{ seatStatusText(selectedSeat) }}</p>
+              <p><strong>坐标：</strong>({{ selectedSeat.x }}, {{ selectedSeat.y }})</p>
+              <p>
+                <strong>周边环境：</strong>
+                {{ selectedSeatEnvironment.length ? selectedSeatEnvironment.join('、') : '普通区域' }}
+              </p>
+              <p>已为你打开详情面板，可在其中留言或完成预约。</p>
+              <button class="primary-button full-width" @click="drawerVisible = true">打开/返回详情窗口</button>
             </div>
-            <div class="seat-card-footer">
-              <span :class="['seat-tag', { muted: seat.reserved || seat.seatStatus !== 1 }]">
-                {{ seatStatusText(seat) }}
-              </span>
-              <button
-                class="primary-button"
-                :disabled="seat.reserved || seat.seatStatus !== 1 || reservingSeatId === seat.seatId"
-                @click="reserveSeat(seat)"
-              >
-                {{ reservingSeatId === seat.seatId ? '预约中...' : '预约此座位' }}
-              </button>
+            <div v-else class="selection-empty">
+              请从左侧地图点击任意座位，系统会在详情窗口中展示座位号、状态、坐标、周边环境和留言板。
             </div>
-          </article>
+
+            <div class="tips-card">
+              <h4>地图提示</h4>
+              <ul>
+                <li>优先观察门口、窗户和座位排布，判断座位的整体分区。</li>
+                <li>蓝色表示空闲可预约，红色表示已预约，灰色表示当前不可预约。</li>
+                <li>点击任意座位都能打开详情窗口，查看信息并留言。</li>
+                <li>已预约或不可预约的座位也支持打开详情窗口并留言。</li>
+              </ul>
+            </div>
+          </aside>
         </div>
       </section>
+
+      <SeatDetailDrawer
+        :visible="drawerVisible"
+        :seat="selectedSeat"
+        :environment-tags="selectedSeatEnvironment"
+        :loading-seat-status="loadingSeats"
+        :reserving-seat-id="reservingSeatId"
+        @close="drawerVisible = false"
+        @confirm-reserve="reserveSeat"
+      />
     </template>
   </section>
 </template>
@@ -300,6 +370,10 @@ input {
   opacity: 0.6;
 }
 
+.full-width {
+  width: 100%;
+}
+
 .feedback {
   color: #374151;
 }
@@ -322,54 +396,58 @@ input {
 }
 
 .section-header p,
-.room-meta p,
-.seat-card p {
+.room-meta p {
   margin: 8px 0 0;
   color: #4b5563;
 }
 
-.seat-grid {
+.map-layout {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 16px;
+  grid-template-columns: minmax(0, 1.8fr) minmax(280px, 0.9fr);
+  gap: 20px;
   margin-top: 20px;
+  align-items: start;
 }
 
-.seat-card {
+.selection-panel {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   gap: 16px;
+}
+
+.selection-panel h3,
+.tips-card h4 {
+  margin: 0;
+}
+
+.selection-card,
+.selection-empty,
+.tips-card {
   border: 1px solid #dbeafe;
   background: #f8fbff;
   border-radius: 14px;
-  padding: 20px;
+  padding: 18px;
 }
 
-.seat-card.reserved {
-  border-color: #e5e7eb;
-  background: #f9fafb;
+.selection-card p,
+.selection-empty,
+.tips-card li {
+  color: #475569;
 }
 
-.seat-card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
+.tips-card ul {
+  margin: 12px 0 0;
+  padding-left: 18px;
 }
 
-.seat-tag {
-  color: #1d4ed8;
-  font-weight: 600;
-}
-
-.seat-tag.muted {
-  color: #6b7280;
+@media (max-width: 960px) {
+  .map-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {
-  .page-header,
-  .seat-card-footer {
+  .page-header {
     flex-direction: column;
     align-items: flex-start;
   }
