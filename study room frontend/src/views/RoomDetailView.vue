@@ -243,7 +243,6 @@ onMounted(() => {
             <div v-if="selectedSeat" class="selection-card">
               <p><strong>座位号：</strong>{{ selectedSeat.seatCode }}</p>
               <p><strong>状态：</strong>{{ seatStatusText(selectedSeat) }}</p>
-              <p><strong>坐标：</strong>({{ selectedSeat.x }}, {{ selectedSeat.y }})</p>
               <p>
                 <strong>周边环境：</strong>
                 {{ selectedSeatEnvironment.length ? selectedSeatEnvironment.join('、') : '普通区域' }}

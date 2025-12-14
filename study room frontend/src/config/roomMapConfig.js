@@ -10,10 +10,10 @@ const DEFAULT_MAP_CONFIG = {
     horizontal: []
   },
   windows: [
-    { edge: 'top', start: 2, span: 6, label: '窗户' }
+    { edge: 'top', start: 2, span: 6, label: 'Window' }
   ],
   doors: [
-    { edge: 'bottom', start: 6, span: 3, label: '入口' }
+    { edge: 'bottom', start: 6, span: 3, label: 'Door' }
   ],
   toilets: [],
   lightZones: [],
@@ -38,10 +38,10 @@ const ROOM_MAP_CONFIG = {
       horizontal: []
     },
     doors: [
-      { edge: 'top', start: 4, span: 3, label: '门口' }
+      { edge: 'top', start: 2, span: 2, label: 'Door' }
     ],
     windows: [
-      { edge: 'bottom', start: 2, span: 7, label: '窗户' }
+      { edge: 'bottom', start: 2, span: 6, label: 'Window' }
     ],
     toilets: [],
     lightZones: [],
@@ -59,13 +59,13 @@ const ROOM_MAP_CONFIG = {
       horizontal: []
     },
     windows: [
-      { edge: 'top', start: 60, span: 220, label: '窗户' }
+      { edge: 'top', start: 60, span: 220, label: 'Window' }
     ],
     doors: [
-      { edge: 'bottom', start: 140, span: 90, label: '入口' }
+      { edge: 'bottom', start: 140, span: 90, label: 'Door' }
     ],
     toilets: [
-      { edge: 'right', start: 1, span: 110, label: '厕所' }
+      { edge: 'right', start: 1, span: 110, label: 'Toilet' }
     ],
     lightZones: [],
     labels: []

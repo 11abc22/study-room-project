@@ -56,12 +56,12 @@ const legendItems = computed(() => {
     { key: 'selected', label: '当前选中' },
     { key: 'reserved', label: '已预约' },
     { key: 'disabled', label: '不可用' },
-    { key: 'door', label: '门口' },
-    { key: 'window', label: '窗户' }
+    { key: 'door', label: 'Door' },
+    { key: 'window', label: 'Windows' }
   ]
 
   if (layout.value.toilets?.length) {
-    items.push({ key: 'toilet', label: '厕所' })
+    items.push({ key: 'toilet', label: 'Toilet' })
   }
 
   if (layout.value.aisles?.vertical?.length || layout.value.aisles?.horizontal?.length) {
@@ -160,7 +160,7 @@ function seatStyle(seat) {
         class="edge-feature window"
         :style="featureStyle(window)"
       >
-        {{ window.label || '窗户' }}
+        {{ window.label || 'window' }}
       </div>
 
       <div
@@ -169,7 +169,7 @@ function seatStyle(seat) {
         class="edge-feature door"
         :style="featureStyle(door)"
       >
-        {{ door.label || '门' }}
+        {{ door.label || 'door' }}
       </div>
 
       <div
@@ -178,7 +178,7 @@ function seatStyle(seat) {
         class="edge-feature toilet"
         :style="featureStyle(toilet)"
       >
-        {{ toilet.label || '厕所' }}
+        {{ toilet.label || 'toilet' }}
       </div>
 
       <button
@@ -200,7 +200,6 @@ function seatStyle(seat) {
         @click="emitSelectSeat(seat)"
       >
         <span class="seat-code">{{ seat.seatCode }}</span>
-        <span class="seat-position">{{ seat.x }},{{ seat.y }}</span>
       </button>
     </div>
   </div>
@@ -423,10 +422,6 @@ function seatStyle(seat) {
   font-size: 14px;
 }
 
-.seat-position {
-  font-size: 11px;
-  opacity: 0.85;
-}
 
 @media (max-width: 768px) {
   .seat-map {

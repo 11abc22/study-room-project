@@ -185,7 +185,6 @@ function formatDateTime(value) {
           <section class="info-card">
             <p><strong>座位号：</strong>{{ seat.seatCode }}</p>
             <p><strong>当前状态：</strong>{{ loadingSeatStatus ? '状态刷新中...' : seatStatusText }}</p>
-            <p><strong>坐标：</strong>({{ seat.x }}, {{ seat.y }})</p>
             <p><strong>周边环境：</strong>{{ environmentTags.length ? environmentTags.join('、') : '普通区域' }}</p>
             <p v-if="reserveDisabledReason" class="hint warning">{{ reserveDisabledReason }}</p>
             <button
