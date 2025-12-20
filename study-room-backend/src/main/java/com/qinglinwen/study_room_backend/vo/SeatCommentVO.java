@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 public class SeatCommentVO {
     private Long id;
     private Long seatId;
+    private String seatCode;
     private Long userId;
     private String username;
     private String content;

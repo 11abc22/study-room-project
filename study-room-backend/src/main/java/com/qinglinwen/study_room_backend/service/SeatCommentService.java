@@ -114,6 +114,13 @@ public class SeatCommentService {
         vo.setUsername(user != null ? user.getUsername() : "用户" + comment.getUserId());
         vo.setContent(comment.getContent());
         vo.setCreatedAt(comment.getCreatedAt());
+        vo.setSeatCode(getSeatCode(comment.getSeatId()));
         return vo;
+    }
+
+    private String getSeatCode(Long seatId) {
+        return seatRepository.findById(seatId)
+                .map(Seat::getSeatCode)
+                .orElse("未知座位");
     }
 }

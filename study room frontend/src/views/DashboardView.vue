@@ -7,10 +7,20 @@ const authStore = useAuthStore()
 const router = useRouter()
 
 const displayName = computed(() => authStore.user?.username || authStore.user?.email || '用户')
-const todaySummary = computed(() => [
-  { title: '自习室列表', description: '查看可用自习室、位置与后续可扩展的容量信息。', action: '进入列表', routeName: 'rooms' },
-  { title: '我的预约', description: '查看当前账号的预约记录，下一阶段接入真实预约明细。', action: '查看预约', routeName: 'my-reservations' }
-])
+const isAdmin = computed(() => authStore.user?.username === 'admin')
+const todaySummary = computed(() => {
+  const items = [
+    { title: '自习室列表', description: '查看可用自习室、位置与后续可扩展的容量信息。', action: '进入列表', routeName: 'rooms' },
+    { title: '我的预约', description: '查看当前账号的预约记录，下一阶段接入真实预约明细。', action: '查看预约', routeName: 'my-reservations' }
+  ]
+  if (isAdmin.value) {
+    items.push(
+      { title: '预约管理', description: '管理员：查看所有预约记录，支持筛选、取消和修改状态。', action: '进入管理', routeName: 'AdminReservations' },
+      { title: '留言管理', description: '管理员：查看和删除所有座位留言。', action: '进入管理', routeName: 'AdminComments' }
+    )
+  }
+  return items
+})
 
 const handleLogout = () => {
   authStore.clearAuth()
