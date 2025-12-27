@@ -6,17 +6,17 @@ import { useAuthStore } from '@/stores/auth'
 const authStore = useAuthStore()
 const router = useRouter()
 
-const displayName = computed(() => authStore.user?.username || authStore.user?.email || '用户')
+const displayName = computed(() => authStore.user?.username || authStore.user?.email || 'Guest')
 const isAdmin = computed(() => authStore.user?.username === 'admin')
 const todaySummary = computed(() => {
   const items = [
-    { title: '自习室列表', description: '查看可用自习室、位置与后续可扩展的容量信息。', action: '进入列表', routeName: 'rooms' },
-    { title: '我的预约', description: '查看当前账号的预约记录，下一阶段接入真实预约明细。', action: '查看预约', routeName: 'my-reservations' }
+    { title: 'Study Rooms', description: 'Browse available study rooms, locations, and room details.', action: 'Open Rooms', routeName: 'rooms' },
+    { title: 'My Reservations', description: 'Review your current reservations and manage upcoming bookings.', action: 'View Reservations', routeName: 'my-reservations' }
   ]
   if (isAdmin.value) {
     items.push(
-      { title: '预约管理', description: '管理员：查看所有预约记录，支持筛选、取消和修改状态。', action: '进入管理', routeName: 'AdminReservations' },
-      { title: '留言管理', description: '管理员：查看和删除所有座位留言。', action: '进入管理', routeName: 'AdminComments' }
+      { title: 'Reservation Management', description: 'Admin: review all reservations, filter records, cancel bookings, and update status.', action: 'Open Admin Panel', routeName: 'AdminReservations' },
+      { title: 'Comment Management', description: 'Admin: review and remove all seat comments.', action: 'Open Admin Panel', routeName: 'AdminComments' }
     )
   }
   return items
@@ -36,13 +36,13 @@ const goTo = (routeName) => {
   <section class="dashboard">
     <div class="hero-card">
       <div>
-        <p class="eyebrow">业务入口</p>
-        <h1>欢迎回来，{{ displayName }}</h1>
+        <p class="eyebrow">Quick Access</p>
+        <h1>Welcome back, {{ displayName }}</h1>
         <p class="hero-text">
-          当前阶段已完成系统稳定化与业务骨架整理。你可以从这里进入自习室列表、我的预约，后续功能会在此基础上逐步接入。
+          Access room browsing, reservations, and admin tools from one place.
         </p>
       </div>
-      <button class="logout-button" @click="handleLogout">退出登录</button>
+      <button class="logout-button" @click="handleLogout">Sign Out</button>
     </div>
 
     <div class="entry-grid">

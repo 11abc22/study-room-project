@@ -52,10 +52,10 @@ const seatItems = computed(() =>
 
 const legendItems = computed(() => {
   const items = [
-    { key: 'available', label: '空闲可预约' },
-    { key: 'selected', label: '当前选中' },
-    { key: 'reserved', label: '已预约' },
-    { key: 'disabled', label: '不可用' },
+    { key: 'available', label: 'Available' },
+    { key: 'selected', label: 'Selected' },
+    { key: 'reserved', label: 'Reserved' },
+    { key: 'disabled', label: 'Unavailable' },
     { key: 'door', label: 'Door' },
     { key: 'window', label: 'Windows' }
   ]
@@ -65,11 +65,11 @@ const legendItems = computed(() => {
   }
 
   if (layout.value.aisles?.vertical?.length || layout.value.aisles?.horizontal?.length) {
-    items.push({ key: 'aisle', label: '过道 / 分隔' })
+    items.push({ key: 'aisle', label: 'Aisle / Divider' })
   }
 
   if (layout.value.lightZones?.length) {
-    items.push({ key: 'light', label: '采光提示区' })
+    items.push({ key: 'light', label: 'Light Zone' })
   }
 
   return items
@@ -142,7 +142,7 @@ function seatStyle(seat) {
         class="aisle vertical"
         :style="{ gridColumn: `${line.line} / span 1`, gridRow: `1 / span ${rows}` }"
       >
-        过道
+        Aisle
       </div>
 
       <div
@@ -151,7 +151,7 @@ function seatStyle(seat) {
         class="aisle horizontal"
         :style="{ gridColumn: `1 / span ${columns}`, gridRow: `${line.line} / span 1` }"
       >
-        过道
+        Aisle
       </div>
 
       <div
@@ -160,7 +160,7 @@ function seatStyle(seat) {
         class="edge-feature window"
         :style="featureStyle(window)"
       >
-        {{ window.label || 'window' }}
+        {{ window.label || 'Window' }}
       </div>
 
       <div
@@ -169,7 +169,7 @@ function seatStyle(seat) {
         class="edge-feature door"
         :style="featureStyle(door)"
       >
-        {{ door.label || 'door' }}
+        {{ door.label || 'Door' }}
       </div>
 
       <div
@@ -178,7 +178,7 @@ function seatStyle(seat) {
         class="edge-feature toilet"
         :style="featureStyle(toilet)"
       >
-        {{ toilet.label || 'toilet' }}
+        {{ toilet.label || 'Toilet' }}
       </div>
 
       <button
@@ -196,7 +196,7 @@ function seatStyle(seat) {
           }
         ]"
         :style="seatStyle(seat)"
-        :title="`${seat.seatCode} - ${seat.environmentTags.join(' / ') || '普通区域'}`"
+        :title="`${seat.seatCode} - ${seat.environmentTags.join(' / ') || 'Standard area'}`"
         @click="emitSelectSeat(seat)"
       >
         <span class="seat-code">{{ seat.seatCode }}</span>
@@ -421,7 +421,6 @@ function seatStyle(seat) {
   font-weight: 700;
   font-size: 14px;
 }
-
 
 @media (max-width: 768px) {
   .seat-map {

@@ -34,7 +34,7 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
         User user = userService.findByEmail(loginRequest.getEmail())
-                .orElseThrow(() -> new RuntimeException("用户不存在"));
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
         boolean passwordMatched = userService.checkPassword(
                 loginRequest.getPassword(),
@@ -42,11 +42,11 @@ public class AuthController {
         );
 
         if (!passwordMatched) {
-            throw new RuntimeException("密码错误");
+            throw new RuntimeException("Incorrect password");
         }
 
         return ResponseEntity.ok(Map.of(
-                "message", "登录成功",
+                "message", "Signed in successfully",
                 "user", Map.of(
                         "id", user.getId(),
                         "username", user.getUsername(),

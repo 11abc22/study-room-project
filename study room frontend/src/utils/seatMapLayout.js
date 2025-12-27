@@ -276,11 +276,11 @@ export function getSeatEnvironmentTags(seat, layout) {
   const { displayX, displayY, seatId } = seat
 
   if ((layout.windows || []).some((window) => isNearEdgeFeature(displayX, displayY, window))) {
-    tags.push('靠窗')
+    tags.push('Near window')
   }
 
   if ((layout.toilets || []).some((toilet) => isNearEdgeFeature(displayX, displayY, toilet, 2))) {
-    tags.push('靠近厕所')
+    tags.push('Near restroom')
   }
 
   const lightZone = (layout.lightZones || []).find((zone) => isInsideRect(displayX, displayY, zone))
@@ -293,7 +293,7 @@ export function getSeatEnvironmentTags(seat, layout) {
   )
 
   if (horizontalNeighbor) {
-    tags.push('与相邻座位同排')
+    tags.push('Same row cluster')
   }
 
   const verticalNeighbor = (layout.seats || []).some(
@@ -301,7 +301,7 @@ export function getSeatEnvironmentTags(seat, layout) {
   )
 
   if (verticalNeighbor) {
-    tags.push('与上下排座位对齐')
+    tags.push('Aligned vertically')
   }
 
   return [...new Set(tags)]

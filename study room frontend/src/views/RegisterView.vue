@@ -1,66 +1,61 @@
-<!-- src/views/RegisterView.vue -->
 <script setup>
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
-import api from '../services/api.js';
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import api from '../services/api.js'
 
-const router = useRouter();
-const username = ref('');
-const email = ref('');
-const password = ref('');
-const confirmPassword = ref('');
+const router = useRouter()
+const username = ref('')
+const email = ref('')
+const password = ref('')
+const confirmPassword = ref('')
 
 const handleRegister = async () => {
-    if (password.value !== confirmPassword.value) {
-        alert('两次输入的密码不一致！');
-        return;
-    }
+  if (password.value !== confirmPassword.value) {
+    alert('The passwords do not match.')
+    return
+  }
 
-    try {
-        console.log('即将发送注册请求...'); // 日志探针
-        await api.post('/api/auth/register', {
-            username: username.value,
-            email: email.value,
-            password: password.value
-        });
-        alert('注册成功！即将跳转到登录页面。');
-        router.push({ name: 'login' });
-    } catch (error) {
-        console.error('注册失败，捕获到错误:', error);
-        alert('注册失败: ' + (error.response?.data?.message || '请检查错误详情。'));
-    }
+  try {
+    await api.post('/api/auth/register', {
+      username: username.value,
+      email: email.value,
+      password: password.value
+    })
+    alert('Account created successfully. Redirecting to sign in...')
+    router.push({ name: 'login' })
+  } catch (error) {
+    console.error('Registration failed:', error)
+    alert(`Sign-up failed: ${error.response?.data?.message || 'Please review the form and try again.'}`)
+  }
 }
 </script>
 
 <template>
   <div class="form-container">
     <form @submit.prevent="handleRegister">
-      <h2>用户注册</h2>
+      <h2>Create Account</h2>
       <div class="form-group">
-        <label for="username">用户名</label>
-        <input type="text" id="username" v-model="username" placeholder="请输入用户名" required>
+        <label for="username">Username</label>
+        <input type="text" id="username" v-model="username" placeholder="Enter a username" required>
       </div>
       <div class="form-group">
-        <label for="email">邮箱</label>
-        <input type="email" id="email" v-model="email" placeholder="请输入邮箱" required>
+        <label for="email">Email</label>
+        <input type="email" id="email" v-model="email" placeholder="Enter your email" required>
       </div>
       <div class="form-group">
-        <label for="password">密码</label>
-        <input type="password" id="password" v-model="password" placeholder="请输入密码" required>
+        <label for="password">Password</label>
+        <input type="password" id="password" v-model="password" placeholder="Create a password" required>
       </div>
       <div class="form-group">
-        <label for="confirmPassword">确认密码</label>
-        <input type="password" id="confirmPassword" v-model="confirmPassword" placeholder="请再次输入密码" required>
+        <label for="confirmPassword">Confirm Password</label>
+        <input type="password" id="confirmPassword" v-model="confirmPassword" placeholder="Enter your password again" required>
       </div>
-      <button type="submit">注册</button>
+      <button type="submit">Sign Up</button>
     </form>
   </div>
 </template>
 
 <style scoped>
-/* 这里的样式与登录页面完全相同，你可以把它们提取到一个公共的CSS文件中，
-   然后在两个组件中导入，以遵循 DRY (Don't Repeat Yourself) 原则。
-   但为了本教程的简单性，我们暂时复制它。*/
 .form-container {
   display: flex;
   justify-content: center;

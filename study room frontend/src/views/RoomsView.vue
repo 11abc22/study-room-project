@@ -17,14 +17,14 @@ async function loadRooms() {
     const { data } = await getRooms()
     rooms.value = data
   } catch (error) {
-    errorMessage.value = error.response?.data?.message || '加载自习室列表失败，请稍后重试。'
+    errorMessage.value = error.response?.data?.message || 'Failed to load study rooms. Please try again later.'
   } finally {
     loading.value = false
   }
 }
 
 function roomStatusText(status) {
-  return status === 1 ? '开放中' : '未开放'
+  return status === 1 ? 'Open' : 'Closed'
 }
 
 onMounted(() => {
@@ -36,33 +36,33 @@ onMounted(() => {
   <section class="page">
     <header class="page-header">
       <div>
-        <p class="eyebrow">自习室管理</p>
-        <h1>自习室列表</h1>
-        <p>查看开放中的自习室，并进入房间详情选择时段与座位发起预约。</p>
+        <p class="eyebrow">Study Room Directory</p>
+        <h1>Study Rooms</h1>
+        <p>Browse available study rooms and open a room to choose a time slot and seat.</p>
       </div>
       <div class="summary-card">
         <strong>{{ activeRoomsCount }}</strong>
-        <span>开放中的自习室</span>
+        <span>Open rooms</span>
       </div>
     </header>
 
     <div v-if="errorMessage" class="feedback error">{{ errorMessage }}</div>
-    <div v-else-if="loading" class="feedback">正在加载自习室列表...</div>
-    <div v-else-if="!rooms.length" class="feedback">当前没有可展示的自习室。</div>
+    <div v-else-if="loading" class="feedback">Loading study rooms...</div>
+    <div v-else-if="!rooms.length" class="feedback">No study rooms are available right now.</div>
 
     <div v-else class="room-grid">
       <article v-for="room in rooms" :key="room.id" class="room-card">
         <div class="room-card-header">
           <div>
             <h2>{{ room.name }}</h2>
-            <p>{{ room.location || '暂无位置信息' }}</p>
+            <p>{{ room.location || 'Location not available' }}</p>
           </div>
           <span :class="['status', { inactive: room.status !== 1 }]">{{ roomStatusText(room.status) }}</span>
         </div>
 
-        <p class="description">{{ room.description || '暂无房间说明。' }}</p>
+        <p class="description">{{ room.description || 'No room description available.' }}</p>
 
-        <RouterLink :to="`/rooms/${room.id}`" class="action-link">查看详情并预约</RouterLink>
+        <RouterLink :to="`/rooms/${room.id}`" class="action-link">View details & reserve</RouterLink>
       </article>
     </div>
   </section>

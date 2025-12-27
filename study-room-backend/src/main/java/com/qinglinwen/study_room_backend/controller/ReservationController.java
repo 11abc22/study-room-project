@@ -26,13 +26,13 @@ public class ReservationController {
 
     private Long getCurrentUserId(String userIdHeader) {
         if (userIdHeader == null || userIdHeader.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "缺少 X-User-Id 请求头");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing X-User-Id header");
         }
 
         try {
             return Long.parseLong(userIdHeader);
         } catch (NumberFormatException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "X-User-Id 格式无效");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid X-User-Id format");
         }
     }
 
@@ -46,7 +46,7 @@ public class ReservationController {
     public Map<String, Object> createReservation(@RequestHeader(value = USER_ID_HEADER, required = false) String userIdHeader,
                                                  @RequestBody ReservationRequest req) {
         Long id = reservationService.createReservation(getCurrentUserId(userIdHeader), req);
-        return Map.of("message", "预约成功", "reservationId", id);
+        return Map.of("message", "Reservation created successfully", "reservationId", id);
     }
 
     @GetMapping("/my")
@@ -59,13 +59,13 @@ public class ReservationController {
                                                  @PathVariable Long id,
                                                  @RequestBody ReservationRequest req) {
         reservationService.updateReservation(getCurrentUserId(userIdHeader), id, req);
-        return Map.of("message", "修改成功");
+        return Map.of("message", "Reservation updated successfully");
     }
 
     @DeleteMapping("/{id}")
     public Map<String, Object> cancelReservation(@RequestHeader(value = USER_ID_HEADER, required = false) String userIdHeader,
                                                  @PathVariable Long id) {
         reservationService.cancelReservation(getCurrentUserId(userIdHeader), id);
-        return Map.of("message", "取消成功");
+        return Map.of("message", "Reservation cancelled successfully");
     }
 }

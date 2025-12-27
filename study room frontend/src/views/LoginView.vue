@@ -12,7 +12,7 @@ const password = ref('')
 
 const handleLogin = async () => {
   if (!email.value || !password.value) {
-    alert('邮箱和密码不能为空！')
+    alert('Email and password are required.')
     return
   }
 
@@ -23,13 +23,12 @@ const handleLogin = async () => {
     })
 
     authStore.setAuth(response.data.user)
-
-    alert(response.data.message || '登录成功！')
+    alert(response.data.message || 'Signed in successfully.')
     router.push({ name: 'dashboard' })
   } catch (error) {
-    console.error('登录失败，捕获到错误:', error)
+    console.error('Login failed:', error)
     authStore.clearAuth()
-    alert('登录失败: ' + (error.response?.data?.message || '用户名或密码错误。'))
+    alert(`Sign-in failed: ${error.response?.data?.message || 'Incorrect email or password.'}`)
   }
 }
 </script>
@@ -37,16 +36,16 @@ const handleLogin = async () => {
 <template>
   <div class="form-container">
     <form @submit.prevent="handleLogin">
-      <h2>用户登录</h2>
+      <h2>Sign In</h2>
       <div class="form-group">
-        <label for="email">邮箱</label>
-        <input type="email" id="email" v-model="email" placeholder="请输入您的邮箱" required>
+        <label for="email">Email</label>
+        <input type="email" id="email" v-model="email" placeholder="Enter your email" required>
       </div>
       <div class="form-group">
-        <label for="password">密码</label>
-        <input type="password" id="password" v-model="password" placeholder="请输入您的密码" required>
+        <label for="password">Password</label>
+        <input type="password" id="password" v-model="password" placeholder="Enter your password" required>
       </div>
-      <button type="submit">登录</button>
+      <button type="submit">Sign In</button>
     </form>
   </div>
 </template>

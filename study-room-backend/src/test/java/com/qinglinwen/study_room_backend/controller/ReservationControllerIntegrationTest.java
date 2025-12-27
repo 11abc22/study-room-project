@@ -107,36 +107,36 @@ class ReservationControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(buildReservationRequest(seat1Id))))
                 .andExpect(status().is5xxServerError())
-                .andExpect(jsonPath("$.message").value("无权修改该预约"));
+                .andExpect(jsonPath("$.message").value("You do not have permission to update this reservation"));
 
         mockMvc.perform(put("/api/reservations/{id}", reservationId)
                         .header("X-User-Id", user2Id)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(buildReservationRequest(seat1Id))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("修改成功"));
+                .andExpect(jsonPath("$.message").value("Reservation updated successfully"));
 
         mockMvc.perform(delete("/api/reservations/{id}", reservationId)
                         .header("X-User-Id", user1Id))
                 .andExpect(status().is5xxServerError())
-                .andExpect(jsonPath("$.message").value("无权取消该预约"));
+                .andExpect(jsonPath("$.message").value("You do not have permission to cancel this reservation"));
 
         mockMvc.perform(delete("/api/reservations/{id}", reservationId)
                         .header("X-User-Id", user2Id))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("取消成功"));
+                .andExpect(jsonPath("$.message").value("Reservation cancelled successfully"));
     }
 
     @Test
     void reservationEndpointsRequireUserIdHeader() throws Exception {
         mockMvc.perform(get("/api/reservations/my"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message").value("缺少 X-User-Id 请求头"));
+                .andExpect(jsonPath("$.message").value("Missing X-User-Id header"));
 
         mockMvc.perform(get("/api/reservations/my")
                         .header("X-User-Id", "abc"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("X-User-Id 格式无效"));
+                .andExpect(jsonPath("$.message").value("Invalid X-User-Id format"));
     }
 
     private Long registerAndLogin(String username, String email) throws Exception {

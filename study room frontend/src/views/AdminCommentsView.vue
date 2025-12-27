@@ -20,7 +20,7 @@ async function loadComments() {
     const { data } = await getAllComments()
     comments.value = data
   } catch (error) {
-    errorMessage.value = error.response?.data?.message || '加载留言列表失败，请稍后重试。'
+    errorMessage.value = error.response?.data?.message || 'Failed to load comments. Please try again later.'
   } finally {
     loading.value = false
   }
@@ -38,10 +38,10 @@ async function handleDelete(id) {
 
   try {
     const { data } = await deleteComment(id)
-    successMessage.value = data.message || '留言已删除'
+    successMessage.value = data.message || 'Comment deleted.'
     await loadComments()
   } catch (error) {
-    errorMessage.value = error.response?.data?.message || '删除留言失败，请稍后重试。'
+    errorMessage.value = error.response?.data?.message || 'Failed to delete the comment. Please try again later.'
   } finally {
     deletingId.value = null
   }
@@ -60,28 +60,28 @@ onMounted(() => {
   <section class="page">
     <header class="page-header">
       <div>
-        <p class="eyebrow">管理后台</p>
-        <h1>留言管理</h1>
-        <p>查看和删除所有座位留言。</p>
+        <p class="eyebrow">Admin Panel</p>
+        <h1>Comment Management</h1>
+        <p>Review and remove seat comments across the system.</p>
       </div>
-      <button class="ghost-button" @click="goBack">返回首页</button>
+      <button class="ghost-button" @click="goBack">Back to Home</button>
     </header>
 
     <div v-if="errorMessage" class="feedback error">{{ errorMessage }}</div>
     <div v-if="successMessage" class="feedback success">{{ successMessage }}</div>
-    <div v-if="loading" class="feedback">正在加载留言列表...</div>
-    <div v-else-if="!comments.length" class="feedback">暂无留言记录。</div>
+    <div v-if="loading" class="feedback">Loading comments...</div>
+    <div v-else-if="!comments.length" class="feedback">No comments are available.</div>
 
     <div v-else class="comment-list">
       <article v-for="comment in comments" :key="comment.id" class="comment-card">
         <div class="comment-header">
           <div>
             <h3>
-              <span class="username">{{ comment.username || '用户' + comment.userId }}</span>
-              <span class="user-id">（ID: {{ comment.userId }}）</span>
+              <span class="username">{{ comment.username || `User ${comment.userId}` }}</span>
+              <span class="user-id">(ID: {{ comment.userId }})</span>
             </h3>
             <p class="meta">
-              座位：{{ comment.seatCode || '未知' }}（ID: {{ comment.seatId }}）· {{ formatTime(comment.createdAt) }}
+              Seat: {{ comment.seatCode || 'Unknown' }} (ID: {{ comment.seatId }}) · {{ formatTime(comment.createdAt) }}
             </p>
           </div>
           <button
@@ -89,7 +89,7 @@ onMounted(() => {
             :disabled="deletingId === comment.id"
             @click="handleDelete(comment.id)"
           >
-            {{ deletingId === comment.id ? '删除中...' : '删除留言' }}
+            {{ deletingId === comment.id ? 'Deleting...' : 'Delete Comment' }}
           </button>
         </div>
         <p class="comment-content">{{ comment.content }}</p>
@@ -97,7 +97,7 @@ onMounted(() => {
     </div>
 
     <nav class="admin-nav">
-      <router-link :to="{ name: 'AdminReservations' }" class="nav-link">← 管理预约</router-link>
+      <router-link :to="{ name: 'AdminReservations' }" class="nav-link">← Manage Reservations</router-link>
     </nav>
   </section>
 </template>

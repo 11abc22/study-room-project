@@ -36,10 +36,10 @@ public class AdminController {
     private final StudyRoomRepository studyRoomRepository;
 
     public AdminController(UserRepository userRepository,
-                          ReservationRepository reservationRepository,
-                          SeatCommentRepository seatCommentRepository,
-                          SeatRepository seatRepository,
-                          StudyRoomRepository studyRoomRepository) {
+                           ReservationRepository reservationRepository,
+                           SeatCommentRepository seatCommentRepository,
+                           SeatRepository seatRepository,
+                           StudyRoomRepository studyRoomRepository) {
         this.userRepository = userRepository;
         this.reservationRepository = reservationRepository;
         this.seatCommentRepository = seatCommentRepository;
@@ -47,17 +47,14 @@ public class AdminController {
         this.studyRoomRepository = studyRoomRepository;
     }
 
-    /**
-     * 校验当前请求用户是否为管理员（用户名为 admin）
-     */
     private Long checkAdmin(String userIdHeader) {
         Long userId = parseUserId(userIdHeader);
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "用户不存在"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
 
         if (!"admin".equals(user.getUsername())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "无管理员权限");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin access required");
         }
 
         return userId;
@@ -65,20 +62,15 @@ public class AdminController {
 
     private Long parseUserId(String userIdHeader) {
         if (userIdHeader == null || userIdHeader.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "缺少 X-User-Id 请求头");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing X-User-Id header");
         }
         try {
             return Long.parseLong(userIdHeader);
         } catch (NumberFormatException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "X-User-Id 格式无效");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid X-User-Id format");
         }
     }
 
-    // ==================== 预约管理 ====================
-
-    /**
-     * 查看所有预约，支持按 userId、status、date 筛选
-     */
     @GetMapping("/reservations")
     public List<ReservationVO> listReservations(
             @RequestHeader(value = USER_ID_HEADER, required = false) String userIdHeader,
@@ -92,9 +84,6 @@ public class AdminController {
         return enrichReservations(reservations);
     }
 
-    /**
-     * 取消任意预约（将 status 设为 2，与用户取消保持一致）
-     */
     @DeleteMapping("/reservations/{id}")
     @Transactional
     public Map<String, Object> deleteReservation(
@@ -104,17 +93,14 @@ public class AdminController {
         checkAdmin(userIdHeader);
 
         Reservation reservation = reservationRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "预约不存在"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Reservation not found"));
 
         reservation.setStatus(2);
         reservationRepository.save(reservation);
 
-        return Map.of("message", "预约已取消");
+        return Map.of("message", "Reservation cancelled successfully");
     }
 
-    /**
-     * 修改预约状态
-     */
     @PutMapping("/reservations/{id}/status")
     @Transactional
     public Map<String, Object> updateReservationStatus(
@@ -126,23 +112,18 @@ public class AdminController {
 
         Integer newStatus = body.get("status");
         if (newStatus == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "缺少 status 参数");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing status parameter");
         }
 
         Reservation reservation = reservationRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "预约不存在"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Reservation not found"));
 
         reservation.setStatus(newStatus);
         reservationRepository.save(reservation);
 
-        return Map.of("message", "状态已更新");
+        return Map.of("message", "Status updated successfully");
     }
 
-    // ==================== 留言管理 ====================
-
-    /**
-     * 查看所有留言
-     */
     @GetMapping("/comments")
     public List<SeatCommentVO> listComments(
             @RequestHeader(value = USER_ID_HEADER, required = false) String userIdHeader) {
@@ -159,9 +140,6 @@ public class AdminController {
                 .toList();
     }
 
-    /**
-     * 删除任意留言
-     */
     @DeleteMapping("/comments/{id}")
     @Transactional
     public Map<String, Object> deleteComment(
@@ -171,14 +149,12 @@ public class AdminController {
         checkAdmin(userIdHeader);
 
         SeatComment comment = seatCommentRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "留言不存在"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Comment not found"));
 
         seatCommentRepository.delete(comment);
 
-        return Map.of("message", "留言已删除");
+        return Map.of("message", "Comment deleted successfully");
     }
-
-    // ==================== 私有辅助方法 ====================
 
     private List<Reservation> fetchReservations(Long userId, Integer status, String date) {
         if (userId != null && status != null && date != null) {
@@ -233,7 +209,7 @@ public class AdminController {
             vo.setId(r.getId());
             vo.setUserId(r.getUserId());
             User user = userMap.get(r.getUserId());
-            vo.setUsername(user != null ? user.getUsername() : "用户" + r.getUserId());
+            vo.setUsername(user != null ? user.getUsername() : "User " + r.getUserId());
             vo.setRoomId(r.getRoomId());
             vo.setRoomName(roomMap.get(r.getRoomId()));
             vo.setSeatId(r.getSeatId());
@@ -251,9 +227,9 @@ public class AdminController {
         vo.setId(comment.getId());
         vo.setSeatId(comment.getSeatId());
         vo.setSeatCode(seatRepository.findById(comment.getSeatId())
-                .map(Seat::getSeatCode).orElse("未知座位"));
+                .map(Seat::getSeatCode).orElse("Unknown seat"));
         vo.setUserId(comment.getUserId());
-        vo.setUsername(user != null ? user.getUsername() : "用户" + comment.getUserId());
+        vo.setUsername(user != null ? user.getUsername() : "User " + comment.getUserId());
         vo.setContent(comment.getContent());
         vo.setCreatedAt(comment.getCreatedAt());
         return vo;

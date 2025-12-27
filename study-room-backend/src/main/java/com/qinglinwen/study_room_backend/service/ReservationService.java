@@ -59,26 +59,26 @@ public class ReservationService {
         validateRequest(req);
 
         Seat seat = seatRepository.findById(req.getSeatId())
-                .orElseThrow(() -> new RuntimeException("座位不存在"));
+                .orElseThrow(() -> new RuntimeException("Seat not found"));
 
         if (!seat.getRoomId().equals(req.getRoomId())) {
-            throw new RuntimeException("座位不属于该自习室");
+            throw new RuntimeException("The selected seat does not belong to this study room");
         }
 
         if (seat.getStatus() != 1) {
-            throw new RuntimeException("该座位不可预约");
+            throw new RuntimeException("This seat is unavailable for reservation");
         }
 
         if (!reservationRepository.findSeatConflicts(
                 req.getSeatId(), req.getReserveDate(), req.getStartTime(), req.getEndTime()
         ).isEmpty()) {
-            throw new RuntimeException("该座位在该时段已被预约");
+            throw new RuntimeException("This seat is already reserved for the selected time slot");
         }
 
         if (!reservationRepository.findUserConflicts(
                 userId, req.getReserveDate(), req.getStartTime(), req.getEndTime()
         ).isEmpty()) {
-            throw new RuntimeException("你在该时段已有其他预约");
+            throw new RuntimeException("You already have another reservation during this time slot");
         }
 
         Reservation reservation = new Reservation();
@@ -121,10 +121,10 @@ public class ReservationService {
     @Transactional
     public void cancelReservation(Long userId, Long reservationId) {
         Reservation reservation = reservationRepository.findById(reservationId)
-                .orElseThrow(() -> new RuntimeException("预约不存在"));
+                .orElseThrow(() -> new RuntimeException("Reservation not found"));
 
         if (!reservation.getUserId().equals(userId)) {
-            throw new RuntimeException("无权取消该预约");
+            throw new RuntimeException("You do not have permission to cancel this reservation");
         }
 
         reservation.setStatus(2);
@@ -136,21 +136,21 @@ public class ReservationService {
         validateRequest(req);
 
         Reservation old = reservationRepository.findById(reservationId)
-                .orElseThrow(() -> new RuntimeException("预约不存在"));
+                .orElseThrow(() -> new RuntimeException("Reservation not found"));
 
         if (!old.getUserId().equals(userId)) {
-            throw new RuntimeException("无权修改该预约");
+            throw new RuntimeException("You do not have permission to update this reservation");
         }
 
         Seat seat = seatRepository.findById(req.getSeatId())
-                .orElseThrow(() -> new RuntimeException("座位不存在"));
+                .orElseThrow(() -> new RuntimeException("Seat not found"));
 
         if (!seat.getRoomId().equals(req.getRoomId())) {
-            throw new RuntimeException("座位不属于该自习室");
+            throw new RuntimeException("The selected seat does not belong to this study room");
         }
 
         if (seat.getStatus() != 1) {
-            throw new RuntimeException("该座位不可预约");
+            throw new RuntimeException("This seat is unavailable for reservation");
         }
 
         boolean seatConflict = reservationRepository.findSeatConflicts(
@@ -158,7 +158,7 @@ public class ReservationService {
         ).stream().anyMatch(r -> !r.getId().equals(reservationId));
 
         if (seatConflict) {
-            throw new RuntimeException("该座位在该时段已被预约");
+            throw new RuntimeException("This seat is already reserved for the selected time slot");
         }
 
         boolean userConflict = reservationRepository.findUserConflicts(
@@ -166,7 +166,7 @@ public class ReservationService {
         ).stream().anyMatch(r -> !r.getId().equals(reservationId));
 
         if (userConflict) {
-            throw new RuntimeException("你在该时段已有其他预约");
+            throw new RuntimeException("You already have another reservation during this time slot");
         }
 
         old.setRoomId(req.getRoomId());
@@ -181,11 +181,11 @@ public class ReservationService {
     private void validateRequest(ReservationRequest req) {
         if (req.getRoomId() == null || req.getSeatId() == null || req.getReserveDate() == null
                 || req.getStartTime() == null || req.getEndTime() == null) {
-            throw new RuntimeException("预约参数不完整");
+            throw new RuntimeException("Reservation details are incomplete");
         }
 
         if (!req.getStartTime().isBefore(req.getEndTime())) {
-            throw new RuntimeException("开始时间必须早于结束时间");
+            throw new RuntimeException("Start time must be earlier than end time");
         }
     }
 }

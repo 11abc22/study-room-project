@@ -61,12 +61,12 @@ function buildPayload(seatId = null) {
 
 function validateTimeRange() {
   if (!form.value.reserveDate || !form.value.startTime || !form.value.endTime) {
-    seatError.value = '请先完整选择预约日期、开始时间和结束时间。'
+    seatError.value = 'Please select the reservation date, start time, and end time.'
     return false
   }
 
   if (form.value.startTime >= form.value.endTime) {
-    seatError.value = '开始时间必须早于结束时间。'
+    seatError.value = 'Start time must be earlier than end time.'
     return false
   }
 
@@ -82,10 +82,10 @@ async function loadRoom() {
     room.value = data.find((item) => item.id === roomId.value) || null
 
     if (!room.value) {
-      roomError.value = '未找到对应的自习室信息。'
+      roomError.value = 'Study room not found.'
     }
   } catch (error) {
-    roomError.value = error.response?.data?.message || '加载房间信息失败，请稍后重试。'
+    roomError.value = error.response?.data?.message || 'Failed to load room details. Please try again later.'
   } finally {
     loadingRoom.value = false
   }
@@ -115,7 +115,7 @@ async function querySeatStatus(options = {}) {
     }
   } catch (error) {
     seatStatusList.value = []
-    seatError.value = error.response?.data?.message || '查询座位状态失败，请稍后重试。'
+    seatError.value = error.response?.data?.message || 'Failed to load seat status. Please try again later.'
   } finally {
     loadingSeats.value = false
   }
@@ -126,7 +126,7 @@ async function reserveSeat(seat = selectedSeat.value) {
   seatError.value = ''
 
   if (!seat) {
-    seatError.value = '请先在地图上选择一个座位。'
+    seatError.value = 'Please select a seat on the map first.'
     return
   }
 
@@ -138,10 +138,10 @@ async function reserveSeat(seat = selectedSeat.value) {
 
   try {
     const { data } = await createReservation(buildPayload(seat.seatId))
-    successMessage.value = `${seat.seatCode} 预约成功。${data.message || ''}`.trim()
+    successMessage.value = `${seat.seatCode} reserved successfully. ${data.message || ''}`.trim()
     await querySeatStatus({ preserveSelectedSeat: true })
   } catch (error) {
-    seatError.value = error.response?.data?.message || '创建预约失败，请稍后重试。'
+    seatError.value = error.response?.data?.message || 'Failed to create the reservation. Please try again later.'
   } finally {
     reservingSeatId.value = null
   }
@@ -149,14 +149,14 @@ async function reserveSeat(seat = selectedSeat.value) {
 
 function seatStatusText(seat) {
   if (!seat) {
-    return '未选择'
+    return 'No seat selected'
   }
 
   if (seat.seatStatus !== 1) {
-    return '不可用'
+    return 'Unavailable'
   }
 
-  return seat.reserved ? '已被预约' : '空闲可预约'
+  return seat.reserved ? 'Reserved' : 'Available'
 }
 
 function handleSelectSeat(seat) {
@@ -173,43 +173,43 @@ onMounted(() => {
 
 <template>
   <section class="page">
-    <div v-if="loadingRoom" class="feedback">正在加载房间信息...</div>
+    <div v-if="loadingRoom" class="feedback">Loading room details...</div>
     <div v-else-if="roomError" class="feedback error">{{ roomError }}</div>
 
     <template v-else-if="room">
       <header class="page-header">
         <div>
-          <p class="eyebrow">房间详情</p>
+          <p class="eyebrow">Room Details</p>
           <h1>{{ room.name }}</h1>
-          <p>{{ room.location || '暂无位置信息' }}</p>
+          <p>{{ room.location || 'Location not available' }}</p>
         </div>
         <div class="room-meta">
           <span :class="['status', { inactive: room.status !== 1 }]">
-            {{ room.status === 1 ? '开放中' : '未开放' }}
+            {{ room.status === 1 ? 'Open' : 'Closed' }}
           </span>
-          <p>{{ room.description || '暂无房间说明。' }}</p>
+          <p>{{ room.description || 'No room description available.' }}</p>
         </div>
       </header>
 
       <section class="panel">
-        <h2>选择预约时段</h2>
+        <h2>Select a Time Slot</h2>
         <div class="form-grid">
           <label>
-            <span>预约日期</span>
+            <span>Date</span>
             <input v-model="form.reserveDate" type="date" />
           </label>
           <label>
-            <span>开始时间</span>
+            <span>Start Time</span>
             <input v-model="form.startTime" type="time" />
           </label>
           <label>
-            <span>结束时间</span>
+            <span>End Time</span>
             <input v-model="form.endTime" type="time" />
           </label>
         </div>
         <div class="actions">
           <button class="primary-button" :disabled="loadingSeats || room.status !== 1" @click="querySeatStatus()">
-            {{ loadingSeats ? '查询中...' : '查询该时段座位状态' }}
+            {{ loadingSeats ? 'Checking...' : 'Check Seat Availability' }}
           </button>
         </div>
       </section>
@@ -220,14 +220,14 @@ onMounted(() => {
       <section class="panel">
         <div class="section-header">
           <div>
-            <h2>2D 座位地图</h2>
-            <p v-if="hasQueried">当前可预约座位：{{ availableSeats.length }} 个。点击任意座位可查看详情、留言并尝试预约。</p>
-            <p v-else>请先选择时段并点击查询，随后在地图上点击任意座位查看详情。</p>
+            <h2>2D Seat Map</h2>
+            <p v-if="hasQueried">Available seats for this time slot: {{ availableSeats.length }}. Click any seat to view details, leave a comment, or reserve it.</p>
+            <p v-else>Select a time slot and check availability, then click any seat on the map to view details.</p>
           </div>
         </div>
 
-        <div v-if="loadingSeats" class="feedback inline">正在加载座位状态...</div>
-        <div v-else-if="hasQueried && !seatStatusList.length" class="feedback inline">当前时段暂无座位数据。</div>
+        <div v-if="loadingSeats" class="feedback inline">Loading seat status...</div>
+        <div v-else-if="hasQueried && !seatStatusList.length" class="feedback inline">No seat data is available for the selected time slot.</div>
         <div v-else-if="hasQueried" class="map-layout">
           <SeatMap
             :room="room"
@@ -239,28 +239,28 @@ onMounted(() => {
           />
 
           <aside class="selection-panel">
-            <h3>选座概览</h3>
+            <h3>Seat Overview</h3>
             <div v-if="selectedSeat" class="selection-card">
-              <p><strong>座位号：</strong>{{ selectedSeat.seatCode }}</p>
-              <p><strong>状态：</strong>{{ seatStatusText(selectedSeat) }}</p>
+              <p><strong>Seat:</strong> {{ selectedSeat.seatCode }}</p>
+              <p><strong>Status:</strong> {{ seatStatusText(selectedSeat) }}</p>
               <p>
-                <strong>周边环境：</strong>
-                {{ selectedSeatEnvironment.length ? selectedSeatEnvironment.join('、') : '普通区域' }}
+                <strong>Environment:</strong>
+                {{ selectedSeatEnvironment.length ? selectedSeatEnvironment.join(', ') : 'Standard area' }}
               </p>
-              <p>已为你打开详情面板，可在其中留言或完成预约。</p>
-              <button class="primary-button full-width" @click="drawerVisible = true">打开/返回详情窗口</button>
+              <p>The detail panel is ready for comments and reservation actions.</p>
+              <button class="primary-button full-width" @click="drawerVisible = true">Open Detail Panel</button>
             </div>
             <div v-else class="selection-empty">
-              请从左侧地图点击任意座位，系统会在详情窗口中展示座位号、状态、坐标、周边环境和留言板。
+              Click any seat on the map to view the seat code, status, coordinates, nearby environment, and comment board.
             </div>
 
             <div class="tips-card">
-              <h4>地图提示</h4>
+              <h4>Map Guide</h4>
               <ul>
-                <li>优先观察门口、窗户和座位排布，判断座位的整体分区。</li>
-                <li>蓝色表示空闲可预约，红色表示已预约，灰色表示当前不可预约。</li>
-                <li>点击任意座位都能打开详情窗口，查看信息并留言。</li>
-                <li>已预约或不可预约的座位也支持打开详情窗口并留言。</li>
+                <li>Use doors, windows, and seat layout to understand the room zones.</li>
+                <li>Blue means available, red means reserved, and gray means unavailable.</li>
+                <li>Any seat can be opened in the detail panel for more information and comments.</li>
+                <li>Reserved and unavailable seats can still be viewed and commented on.</li>
               </ul>
             </div>
           </aside>

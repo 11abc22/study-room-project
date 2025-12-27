@@ -13,17 +13,17 @@ const isAuthPage = computed(() => route.name === 'login' || route.name === 'regi
   <div class="app-shell">
     <header class="topbar">
       <div class="brand">
-        <RouterLink to="/dashboard">自习室预约系统</RouterLink>
+        <RouterLink to="/dashboard">Study Room Reservation System</RouterLink>
       </div>
       <nav class="nav-links">
         <template v-if="authStore.isAuthenticated">
-          <RouterLink to="/dashboard">首页</RouterLink>
-          <RouterLink to="/rooms">自习室列表</RouterLink>
-          <RouterLink to="/my-reservations">我的预约</RouterLink>
+          <RouterLink to="/dashboard">Home</RouterLink>
+          <RouterLink to="/rooms">Study Rooms</RouterLink>
+          <RouterLink to="/my-reservations">My Reservations</RouterLink>
         </template>
         <template v-else>
-          <RouterLink to="/login">登录</RouterLink>
-          <RouterLink to="/register">注册</RouterLink>
+          <RouterLink to="/login">Sign In</RouterLink>
+          <RouterLink to="/register">Sign Up</RouterLink>
         </template>
       </nav>
     </header>
