@@ -139,6 +139,35 @@ class ReservationControllerIntegrationTest {
                 .andExpect(jsonPath("$.message").value("Invalid X-User-Id format"));
     }
 
+    @Test
+    void timelineEndpointsReturnHourlyAvailability() throws Exception {
+        Long userId = registerAndLogin("charlie", "charlie@example.com");
+        createReservation(userId, seat1Id);
+
+        String reserveDate = LocalDate.now().plusDays(1).toString();
+
+        mockMvc.perform(get("/api/rooms/{roomId}/timeline", roomId)
+                        .param("date", reserveDate))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(15))
+                .andExpect(jsonPath("$[1].hour").value(9))
+                .andExpect(jsonPath("$[1].occupied").value(1))
+                .andExpect(jsonPath("$[1].available").value(1))
+                .andExpect(jsonPath("$[1].status").value("partial"))
+                .andExpect(jsonPath("$[3].hour").value(11))
+                .andExpect(jsonPath("$[3].occupied").value(0));
+
+        mockMvc.perform(get("/api/seats/{seatId}/timeline", seat1Id)
+                        .param("date", reserveDate))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(15))
+                .andExpect(jsonPath("$[1].hour").value(9))
+                .andExpect(jsonPath("$[1].reserved").value(true))
+                .andExpect(jsonPath("$[1].available").value(false))
+                .andExpect(jsonPath("$[3].hour").value(11))
+                .andExpect(jsonPath("$[3].reserved").value(false));
+    }
+
     private Long registerAndLogin(String username, String email) throws Exception {
         RegisterRequest registerRequest = new RegisterRequest();
         registerRequest.setUsername(username);

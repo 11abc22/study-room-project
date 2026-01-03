@@ -8,10 +8,14 @@ import com.qinglinwen.study_room_backend.repository.ReservationRepository;
 import com.qinglinwen.study_room_backend.repository.SeatRepository;
 import com.qinglinwen.study_room_backend.repository.StudyRoomRepository;
 import com.qinglinwen.study_room_backend.vo.ReservationVO;
+import com.qinglinwen.study_room_backend.vo.RoomTimelineHourVO;
 import com.qinglinwen.study_room_backend.vo.SeatStatusVO;
+import com.qinglinwen.study_room_backend.vo.SeatTimelineHourVO;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -52,6 +56,50 @@ public class ReservationService {
             result.add(vo);
         }
         return result;
+    }
+
+    public List<RoomTimelineHourVO> getRoomTimeline(Long roomId, LocalDate reserveDate) {
+        List<Seat> seats = seatRepository.findByRoomId(roomId).stream()
+                .filter(seat -> seat.getStatus() == 1)
+                .toList();
+        int totalSeats = seats.size();
+
+        List<Reservation> reservations = reservationRepository.findByRoomIdAndReserveDateAndStatus(roomId, reserveDate, 1);
+        List<RoomTimelineHourVO> timeline = new ArrayList<>();
+
+        for (int hour = 8; hour <= 22; hour++) {
+            LocalTime slotStart = LocalTime.of(hour, 0);
+            LocalTime slotEnd = slotStart.plusHours(1);
+
+            Set<Long> occupiedSeatIds = reservations.stream()
+                    .filter(reservation -> overlaps(reservation.getStartTime(), reservation.getEndTime(), slotStart, slotEnd))
+                    .map(Reservation::getSeatId)
+                    .collect(Collectors.toSet());
+
+            int occupied = occupiedSeatIds.size();
+            int available = Math.max(totalSeats - occupied, 0);
+            timeline.add(new RoomTimelineHourVO(hour, occupied, totalSeats, available, resolveRoomTimelineStatus(occupied, totalSeats)));
+        }
+
+        return timeline;
+    }
+
+    public List<SeatTimelineHourVO> getSeatTimeline(Long seatId, LocalDate reserveDate) {
+        Seat seat = seatRepository.findById(seatId)
+                .orElseThrow(() -> new RuntimeException("Seat not found"));
+
+        List<Reservation> reservations = reservationRepository.findBySeatIdAndReserveDateAndStatus(seatId, reserveDate, 1);
+        List<SeatTimelineHourVO> timeline = new ArrayList<>();
+
+        for (int hour = 8; hour <= 22; hour++) {
+            LocalTime slotStart = LocalTime.of(hour, 0);
+            LocalTime slotEnd = slotStart.plusHours(1);
+            boolean reserved = seat.getStatus() != 1 || reservations.stream()
+                    .anyMatch(reservation -> overlaps(reservation.getStartTime(), reservation.getEndTime(), slotStart, slotEnd));
+            timeline.add(new SeatTimelineHourVO(hour, reserved, !reserved));
+        }
+
+        return timeline;
     }
 
     @Transactional
@@ -176,6 +224,25 @@ public class ReservationService {
         old.setEndTime(req.getEndTime());
 
         reservationRepository.save(old);
+    }
+
+    private boolean overlaps(LocalTime reservationStart, LocalTime reservationEnd, LocalTime slotStart, LocalTime slotEnd) {
+        return reservationStart.isBefore(slotEnd) && reservationEnd.isAfter(slotStart);
+    }
+
+    private String resolveRoomTimelineStatus(int occupied, int total) {
+        if (total <= 0) {
+            return "empty";
+        }
+
+        double ratio = (double) occupied / total;
+        if (ratio >= 0.8d) {
+            return "busy";
+        }
+        if (ratio >= 0.4d) {
+            return "partial";
+        }
+        return "free";
     }
 
     private void validateRequest(ReservationRequest req) {

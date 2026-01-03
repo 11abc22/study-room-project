@@ -8,6 +8,18 @@ export function getRoomSeats(roomId) {
   return apiClient.get(`/api/rooms/${roomId}/seats`)
 }
 
+export function getRoomTimeline(roomId, date) {
+  return apiClient.get(`/api/rooms/${roomId}/timeline`, {
+    params: { date }
+  })
+}
+
+export function getSeatTimeline(seatId, date) {
+  return apiClient.get(`/api/seats/${seatId}/timeline`, {
+    params: { date }
+  })
+}
+
 export function getRoomSeatStatus(roomId, payload) {
   return apiClient.post(`/api/reservations/seat-status/${roomId}`, payload)
 }
