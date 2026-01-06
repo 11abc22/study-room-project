@@ -1,9 +1,5 @@
 <script setup>
-function formatHour(hour) {
-  return String(hour).padStart(2, '0')
-}
-
-defineProps({
+const props = defineProps({
   timeline: {
     type: Array,
     default: () => []
@@ -15,23 +11,48 @@ defineProps({
   error: {
     type: String,
     default: ''
+  },
+  selectedStartHour: {
+    type: Number,
+    default: null
+  },
+  selectedEndHour: {
+    type: Number,
+    default: null
   }
 })
 
-function getBlockClass(item) {
-  if (!item) {
-    return 'empty'
+const emit = defineEmits(['hour-click'])
+
+function formatHour(hour) {
+  return String(hour).padStart(2, '0')
+}
+
+function isFull(item) {
+  return !item || item.available === 0 || item.status === 'busy'
+}
+
+function isPartial(item) {
+  if (!item || isFull(item)) {
+    return false
   }
 
-  if (item.available === 0 || item.status === 'busy') {
-    return 'full'
+  return item.occupied > 0 || item.status === 'partial'
+}
+
+function isPending(item) {
+  if (!item || isFull(item)) {
+    return false
   }
 
-  if (item.occupied > 0 || item.status === 'partial') {
-    return 'partial'
-  }
+  return props.selectedStartHour !== null
+    && props.selectedEndHour !== null
+    && item.hour >= props.selectedStartHour
+    && item.hour < props.selectedEndHour
+}
 
-  return 'empty'
+function handleHourClick(item) {
+  emit('hour-click', item.hour)
 }
 </script>
 
@@ -41,9 +62,23 @@ function getBlockClass(item) {
     <div v-else-if="error" class="timeline-feedback error">{{ error }}</div>
     <div v-else-if="!timeline.length" class="timeline-feedback">Select a date to view the room timeline.</div>
     <div v-else class="timeline-strip" aria-label="Room timeline">
-      <div v-for="item in timeline" :key="item.hour" :class="['timeline-item', getBlockClass(item)]">
+      <button
+        v-for="item in timeline"
+        :key="item.hour"
+        type="button"
+        :class="[
+          'timeline-item',
+          {
+            partial: isPartial(item),
+            full: isFull(item),
+            pending: isPending(item),
+            clickable: !loading
+          }
+        ]"
+        @click="handleHourClick(item)"
+      >
         <span class="timeline-hour">{{ formatHour(item.hour) }}</span>
-      </div>
+      </button>
     </div>
   </section>
 </template>
@@ -75,16 +110,26 @@ function getBlockClass(item) {
 .timeline-item {
   position: relative;
   min-height: 42px;
+  border: none;
   border-right: 1px solid #d1d5db;
   background: #ffffff;
+  padding: 0;
 }
 
 .timeline-item:last-child {
   border-right: none;
 }
 
+.timeline-item.clickable {
+  cursor: pointer;
+}
+
 .timeline-item.partial {
   background: #fde68a;
+}
+
+.timeline-item.pending {
+  background: #3b82f6;
 }
 
 .timeline-item.full {
@@ -100,6 +145,7 @@ function getBlockClass(item) {
   color: #475569;
 }
 
+.timeline-item.pending .timeline-hour,
 .timeline-item.full .timeline-hour {
   color: #ffffff;
 }

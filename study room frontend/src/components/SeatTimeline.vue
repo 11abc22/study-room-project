@@ -22,6 +22,8 @@ const props = defineProps({
   }
 })
 
+const emit = defineEmits(['hour-click'])
+
 function formatHour(hour) {
   return String(hour).padStart(2, '0')
 }
@@ -40,6 +42,10 @@ function isPending(item) {
     && item.hour >= props.selectedStartHour
     && item.hour < props.selectedEndHour
 }
+
+function handleHourClick(item) {
+  emit('hour-click', item.hour)
+}
 </script>
 
 <template>
@@ -48,16 +54,22 @@ function isPending(item) {
     <div v-else-if="error" class="timeline-feedback error">{{ error }}</div>
     <div v-else-if="!timeline.length" class="timeline-feedback">Select a date to view this seat timeline.</div>
     <div v-else class="timeline-strip" aria-label="Seat timeline">
-      <div
+      <button
         v-for="item in timeline"
         :key="item.hour"
+        type="button"
         :class="[
           'timeline-item',
-          { reserved: isReserved(item), pending: isPending(item) }
+          {
+            reserved: isReserved(item),
+            pending: isPending(item),
+            clickable: !loading
+          }
         ]"
+        @click="handleHourClick(item)"
       >
         <span class="timeline-hour">{{ formatHour(item.hour) }}</span>
-      </div>
+      </button>
     </div>
   </section>
 </template>
@@ -92,12 +104,18 @@ function isPending(item) {
 .timeline-item {
   position: relative;
   min-height: 40px;
+  border: none;
   border-right: 1px solid #d1d5db;
   background: #ffffff;
+  padding: 0;
 }
 
 .timeline-item:last-child {
   border-right: none;
+}
+
+.timeline-item.clickable {
+  cursor: pointer;
 }
 
 .timeline-item.reserved {

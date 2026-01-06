@@ -23,6 +23,9 @@ const successMessage = ref('')
 const selectedSeat = ref(null)
 const drawerVisible = ref(false)
 const roomTimeline = ref([])
+const currentSeatTimeline = ref([])
+const timelineSelectionSource = ref('room')
+let seatStatusRefreshTimer = null
 
 const timeOptions = Array.from({ length: 16 }, (_, index) => {
   const hour = index + 8
@@ -89,6 +92,15 @@ function toTimeString(hour) {
   return `${String(hour).padStart(2, '0')}:00`
 }
 
+function toHour(value) {
+  if (!value) {
+    return null
+  }
+
+  const [hour] = value.split(':')
+  return Number(hour)
+}
+
 function applySuggestedHour(hour) {
   updateTimeRange({
     startTime: toTimeString(hour),
@@ -116,6 +128,70 @@ function updateTimeRange({ startTime, endTime }) {
   if (endTime) {
     form.value.endTime = endTime
   }
+}
+
+function isRoomHourSelectable(item) {
+  return Boolean(item) && item.status !== 'busy' && item.available > 0
+}
+
+function isSeatHourSelectable(item) {
+  return Boolean(item) && item.available !== false
+}
+
+function canExtendSelection(timeline, startHour, clickedHour, isSelectable) {
+  const startIndex = timeline.findIndex((item) => item.hour === startHour)
+  const endIndex = timeline.findIndex((item) => item.hour === clickedHour)
+
+  if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
+    return false
+  }
+
+  return timeline.slice(startIndex, endIndex + 1).every((item) => isSelectable(item))
+}
+
+function setTimelineSelection(hour) {
+  updateTimeRange({
+    startTime: toTimeString(hour),
+    endTime: toTimeString(hour + 1)
+  })
+}
+
+function handleTimelineHourClick(hour, source) {
+  const timeline = source === 'seat' ? currentSeatTimeline.value : roomTimeline.value
+  const isSelectable = source === 'seat' ? isSeatHourSelectable : isRoomHourSelectable
+  const clickedItem = timeline.find((item) => item.hour === hour)
+
+  if (!isSelectable(clickedItem)) {
+    return
+  }
+
+  const currentStartHour = toHour(form.value.startTime)
+  const currentEndHour = toHour(form.value.endTime)
+  const isCurrentSelectionOnSameSource = timelineSelectionSource.value === source
+
+  if (!isCurrentSelectionOnSameSource || currentStartHour === null || currentEndHour === null || currentEndHour - currentStartHour !== 1) {
+    timelineSelectionSource.value = source
+    setTimelineSelection(hour)
+    return
+  }
+
+  if (hour <= currentStartHour) {
+    timelineSelectionSource.value = source
+    setTimelineSelection(hour)
+    return
+  }
+
+  if (canExtendSelection(timeline, currentStartHour, hour, isSelectable)) {
+    timelineSelectionSource.value = source
+    updateTimeRange({
+      startTime: toTimeString(currentStartHour),
+      endTime: toTimeString(hour + 1)
+    })
+    return
+  }
+
+  timelineSelectionSource.value = source
+  setTimelineSelection(hour)
 }
 
 async function loadRoom() {
@@ -231,9 +307,35 @@ function seatStatusText(seat) {
 
 function handleSelectSeat(seat) {
   selectedSeat.value = seat
+  currentSeatTimeline.value = []
   drawerVisible.value = true
   successMessage.value = ''
   seatError.value = ''
+}
+
+function closeSeatDrawer() {
+  drawerVisible.value = false
+  selectedSeat.value = null
+  currentSeatTimeline.value = []
+}
+
+function handleSeatTimelineLoaded(timeline) {
+  currentSeatTimeline.value = Array.isArray(timeline) ? timeline : []
+}
+
+function scheduleSeatStatusRefresh() {
+  if (seatStatusRefreshTimer) {
+    clearTimeout(seatStatusRefreshTimer)
+  }
+
+  seatStatusRefreshTimer = setTimeout(async () => {
+    seatStatusRefreshTimer = null
+    await querySeatStatus({
+      preserveSelectedSeat: drawerVisible.value && Boolean(selectedSeat.value),
+      keepSelection: drawerVisible.value && Boolean(selectedSeat.value),
+      silent: true
+    })
+  }, 180)
 }
 
 watch(
@@ -242,6 +344,7 @@ watch(
     seatStatusList.value = []
     hasQueried.value = false
     selectedSeat.value = null
+    currentSeatTimeline.value = []
     drawerVisible.value = false
 
     if (!reserveDate) {
@@ -278,7 +381,16 @@ watch(
       return
     }
 
-    await querySeatStatus({ preserveSelectedSeat: true, keepSelection: true, silent: true })
+    scheduleSeatStatusRefresh()
+  }
+)
+
+watch(
+  () => drawerVisible.value,
+  (visible) => {
+    if (!visible) {
+      currentSeatTimeline.value = []
+    }
   }
 )
 
@@ -336,7 +448,14 @@ onMounted(() => {
             </select>
           </label>
         </div>
-        <RoomTimeline :timeline="roomTimeline" :loading="loadingRoomTimeline" :error="roomTimelineError" />
+        <RoomTimeline
+          :timeline="roomTimeline"
+          :loading="loadingRoomTimeline"
+          :error="roomTimelineError"
+          :selected-start-hour="toHour(form.startTime)"
+          :selected-end-hour="toHour(form.endTime)"
+          @hour-click="(hour) => handleTimelineHourClick(hour, 'room')"
+        />
         <div class="actions">
           <button class="primary-button" :disabled="loadingSeats || room.status !== 1" @click="querySeatStatus()">
             {{ loadingSeats ? 'Refreshing...' : 'Refresh Seat Availability' }}
@@ -406,9 +525,11 @@ onMounted(() => {
         :reserve-date="form.reserveDate"
         :start-time="form.startTime"
         :end-time="form.endTime"
-        @close="drawerVisible = false"
+        @close="closeSeatDrawer"
         @confirm-reserve="reserveSeat"
         @update-time-range="updateTimeRange"
+        @timeline-hour-click="(hour) => handleTimelineHourClick(hour, 'seat')"
+        @seat-timeline-loaded="handleSeatTimelineLoaded"
       />
     </template>
   </section>
