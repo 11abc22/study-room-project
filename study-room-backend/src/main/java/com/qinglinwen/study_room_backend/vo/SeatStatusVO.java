@@ -8,6 +8,9 @@ public class SeatStatusVO {
     private String seatCode;
     private Integer seatStatus;
     private Boolean reserved;
+    private Long reservationId;
+    private Long reservedUserId;
+    private String reservedUsername;
     private Integer x;
     private Integer y;
 }

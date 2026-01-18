@@ -2,7 +2,10 @@ package com.qinglinwen.study_room_backend.repository;
 
 import com.qinglinwen.study_room_backend.entity.Reservation;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+
+import jakarta.persistence.LockModeType;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -55,4 +58,22 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     List<Reservation> findByRoomIdAndReserveDateAndStatus(Long roomId, LocalDate reserveDate, Integer status);
 
     List<Reservation> findBySeatIdAndReserveDateAndStatus(Long seatId, LocalDate reserveDate, Integer status);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from Reservation r where r.id = ?1")
+    java.util.Optional<Reservation> findByIdForUpdate(Long id);
+
+    @Query("""
+        select r from Reservation r
+        where r.userId = ?1
+          and r.reserveDate = ?2
+          and r.startTime = ?3
+          and r.endTime = ?4
+          and r.status = ?5
+    """)
+    List<Reservation> findByUserIdAndReserveDateAndStartTimeAndEndTimeAndStatus(Long userId,
+                                                                                 LocalDate reserveDate,
+                                                                                 LocalTime startTime,
+                                                                                 LocalTime endTime,
+                                                                                 Integer status);
 }

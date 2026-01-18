@@ -1,6 +1,26 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { cancelReservation, getMyReservations, getRoomSeatStatus, getRooms, updateReservation } from '@/services/reservationApi'
+import {
+  cancelReservation,
+  getMyReservations,
+  getRoomSeatStatus,
+  getRooms,
+  updateReservation
+} from '@/services/reservationApi'
+import {
+  approveSwapRequest,
+  decorateMyReservations,
+  getMyPendingSwapRequest,
+  rejectSwapRequest,
+  withdrawSwapRequest
+} from '@/services/swapRequestApi'
+import SwapRequestManagementModal from '@/components/SwapRequestManagementModal.vue'
+import {
+  getReservationStatusMeta,
+  isPendingStatus,
+  isRequestingStatus,
+  isReservedStatus
+} from '@/constants/reservationStatus'
 
 const reservations = ref([])
 const rooms = ref([])
@@ -9,6 +29,7 @@ const errorMessage = ref('')
 const successMessage = ref('')
 const cancellingId = ref(null)
 const savingId = ref(null)
+const withdrawingId = ref(null)
 
 const editingReservationId = ref(null)
 const editForm = ref({
@@ -21,6 +42,12 @@ const editForm = ref({
 const editSeatStatusList = ref([])
 const loadingEditSeats = ref(false)
 const editErrorMessage = ref('')
+
+const swapManagementVisible = ref(false)
+const loadingSwapDetail = ref(false)
+const swapActionLoading = ref(false)
+const managedReservation = ref(null)
+const pendingSwapRequest = ref(null)
 
 const roomOptions = computed(() => rooms.value)
 const editableAvailableSeats = computed(() => {
@@ -35,6 +62,22 @@ const editableAvailableSeats = computed(() => {
   )
 })
 
+const managedReservationTitle = computed(() => {
+  if (!managedReservation.value) {
+    return '--'
+  }
+
+  return `${managedReservation.value.roomName} · ${managedReservation.value.seatCode}`
+})
+
+const managedReservationSchedule = computed(() => {
+  if (!managedReservation.value) {
+    return '--'
+  }
+
+  return formatSchedule(managedReservation.value)
+})
+
 async function loadBaseData() {
   loading.value = true
   errorMessage.value = ''
@@ -42,7 +85,7 @@ async function loadBaseData() {
   try {
     const [{ data: roomData }, { data: reservationData }] = await Promise.all([getRooms(), getMyReservations()])
     rooms.value = roomData
-    reservations.value = reservationData
+    reservations.value = decorateMyReservations(reservationData)
   } catch (error) {
     errorMessage.value = error.response?.data?.message || 'Failed to load reservation data. Please try again later.'
   } finally {
@@ -54,16 +97,12 @@ function formatSchedule(reservation) {
   return `${reservation.reserveDate} ${String(reservation.startTime).slice(0, 5)} - ${String(reservation.endTime).slice(0, 5)}`
 }
 
-function reservationStatusText(status) {
-  if (status === 1) {
-    return 'Reserved'
-  }
+function reservationStatusMeta(status) {
+  return getReservationStatusMeta(status)
+}
 
-  if (status === 2) {
-    return 'Cancelled'
-  }
-
-  return 'Unknown'
+function canEditReservation(reservation) {
+  return isReservedStatus(reservation.status) && !reservation.isVirtualSwapRecord
 }
 
 function validateEditForm() {
@@ -130,6 +169,10 @@ async function loadEditSeatStatus() {
 }
 
 function startEdit(reservation) {
+  if (!canEditReservation(reservation)) {
+    return
+  }
+
   successMessage.value = ''
   errorMessage.value = ''
   editingReservationId.value = reservation.id
@@ -179,15 +222,19 @@ async function submitEdit(reservationId) {
   }
 }
 
-async function handleCancelReservation(reservationId) {
+async function handleCancelReservation(reservation) {
+  if (!canEditReservation(reservation)) {
+    return
+  }
+
   successMessage.value = ''
   errorMessage.value = ''
-  cancellingId.value = reservationId
+  cancellingId.value = reservation.id
 
   try {
-    const { data } = await cancelReservation(reservationId)
+    const { data } = await cancelReservation(reservation.id)
     successMessage.value = data.message || 'Reservation cancelled.'
-    if (editingReservationId.value === reservationId) {
+    if (editingReservationId.value === reservation.id) {
       cancelEdit()
     }
     await loadBaseData()
@@ -195,6 +242,112 @@ async function handleCancelReservation(reservationId) {
     errorMessage.value = error.response?.data?.message || 'Failed to cancel the reservation. Please try again later.'
   } finally {
     cancellingId.value = null
+  }
+}
+
+async function handleWithdrawSwapRequest(reservation) {
+  if (!reservation?.swapRequestId || withdrawingId.value === reservation.id) {
+    return
+  }
+
+  if (!window.confirm('Confirm withdrawing this seat swap request?')) {
+    return
+  }
+
+  successMessage.value = ''
+  errorMessage.value = ''
+  withdrawingId.value = reservation.id
+
+  try {
+    const { data } = await withdrawSwapRequest(reservation.swapRequestId)
+    successMessage.value = data.message || 'Seat swap request withdrawn.'
+    await loadBaseData()
+  } catch (error) {
+    errorMessage.value = error.response?.data?.message || error.message || 'Failed to withdraw the seat swap request.'
+  } finally {
+    withdrawingId.value = null
+  }
+}
+
+function closeSwapManagement() {
+  swapManagementVisible.value = false
+  managedReservation.value = null
+  pendingSwapRequest.value = null
+}
+
+async function openSwapManagement(reservation) {
+  managedReservation.value = reservation
+  pendingSwapRequest.value = null
+  swapManagementVisible.value = true
+  loadingSwapDetail.value = true
+  successMessage.value = ''
+  errorMessage.value = ''
+
+  try {
+    const { data } = await getMyPendingSwapRequest({
+      reservationId: reservation.id,
+      roomId: reservation.roomId,
+      seatId: reservation.seatId,
+      reserveDate: reservation.reserveDate,
+      startTime: reservation.startTime,
+      endTime: reservation.endTime
+    })
+
+    pendingSwapRequest.value = data.data || data || null
+  } catch (error) {
+    errorMessage.value = error.response?.data?.message || 'Failed to load the swap request details.'
+  } finally {
+    loadingSwapDetail.value = false
+  }
+}
+
+async function handleApproveSwapRequest() {
+  if (!pendingSwapRequest.value?.swapRequestId || swapActionLoading.value) {
+    return
+  }
+
+  if (!window.confirm('Approving this request will cancel your current reservation. Continue?')) {
+    return
+  }
+
+  swapActionLoading.value = true
+  successMessage.value = ''
+  errorMessage.value = ''
+
+  try {
+    const { data } = await approveSwapRequest(pendingSwapRequest.value.swapRequestId)
+    successMessage.value = data.message || 'Seat swap request approved.'
+    closeSwapManagement()
+    await loadBaseData()
+  } catch (error) {
+    errorMessage.value = error.response?.data?.message || error.message || 'Failed to approve the seat swap request.'
+  } finally {
+    swapActionLoading.value = false
+  }
+}
+
+async function handleRejectSwapRequest() {
+  if (!pendingSwapRequest.value?.swapRequestId || swapActionLoading.value) {
+    return
+  }
+
+  if (!window.confirm('Confirm rejecting this seat swap request?')) {
+    return
+  }
+
+  swapActionLoading.value = true
+  successMessage.value = ''
+  errorMessage.value = ''
+
+  try {
+    const { data } = await rejectSwapRequest(pendingSwapRequest.value.swapRequestId)
+    successMessage.value = data.message || 'Seat swap request rejected.'
+    closeSwapManagement()
+    await loadBaseData()
+  } catch (error) {
+    errorMessage.value = error.response?.data?.message || error.message || 'Failed to reject the seat swap request.'
+  } finally {
+    swapActionLoading.value = false
   }
 }
 
@@ -209,7 +362,7 @@ onMounted(() => {
       <div>
         <p class="eyebrow">Reservation Center</p>
         <h1>My Reservations</h1>
-        <p>Review your reservations, cancel bookings, or edit an existing reservation.</p>
+        <p>Review your reservations, manage seat swap requests, cancel bookings, or edit an existing reservation.</p>
       </div>
     </header>
 
@@ -225,8 +378,8 @@ onMounted(() => {
             <h2>{{ reservation.roomName }} · {{ reservation.seatCode }}</h2>
             <p>{{ formatSchedule(reservation) }}</p>
           </div>
-          <span :class="['status', { cancelled: reservation.status === 2 }]">
-            {{ reservationStatusText(reservation.status) }}
+          <span :class="['status', reservationStatusMeta(reservation.status).className]">
+            {{ reservationStatusMeta(reservation.status).label }}
           </span>
         </div>
 
@@ -284,20 +437,52 @@ onMounted(() => {
           </div>
         </div>
 
-        <div v-else class="actions">
-          <button class="primary-button" :disabled="reservation.status !== 1" @click="startEdit(reservation)">
-            Edit Reservation
-          </button>
-          <button
-            class="danger-button"
-            :disabled="reservation.status !== 1 || cancellingId === reservation.id"
-            @click="handleCancelReservation(reservation.id)"
-          >
-            {{ cancellingId === reservation.id ? 'Cancelling...' : 'Cancel Reservation' }}
-          </button>
+        <div v-else class="actions actions-wrap">
+          <template v-if="canEditReservation(reservation)">
+            <button class="primary-button" :disabled="savingId === reservation.id" @click="startEdit(reservation)">
+              Edit Reservation
+            </button>
+            <button
+              class="danger-button"
+              :disabled="cancellingId === reservation.id"
+              @click="handleCancelReservation(reservation)"
+            >
+              {{ cancellingId === reservation.id ? 'Cancelling...' : 'Cancel Reservation' }}
+            </button>
+          </template>
+
+          <template v-else-if="isRequestingStatus(reservation.status)">
+            <button
+              class="warning-button"
+              :disabled="withdrawingId === reservation.id"
+              @click="handleWithdrawSwapRequest(reservation)"
+            >
+              {{ withdrawingId === reservation.id ? 'Withdrawing...' : 'Withdraw Request' }}
+            </button>
+          </template>
+
+          <template v-else-if="isPendingStatus(reservation.status)">
+            <button class="primary-button" @click="openSwapManagement(reservation)">View Swap Request</button>
+          </template>
+
+          <p v-else-if="reservation.isVirtualSwapRecord" class="inline-tip success-text no-margin">
+            This record is currently provided by the front-end mock workflow.
+          </p>
         </div>
       </article>
     </div>
+
+    <SwapRequestManagementModal
+      :visible="swapManagementVisible"
+      :reservation-title="managedReservationTitle"
+      :schedule-text="managedReservationSchedule"
+      :request-data="pendingSwapRequest"
+      :loading="loadingSwapDetail"
+      :acting="swapActionLoading"
+      @close="closeSwapManagement"
+      @approve="handleApproveSwapRequest"
+      @reject="handleRejectSwapRequest"
+    />
   </section>
 </template>
 
@@ -362,16 +547,30 @@ onMounted(() => {
 }
 
 .status {
-  background: #dcfce7;
-  color: #166534;
   padding: 6px 12px;
   border-radius: 999px;
   font-size: 14px;
+  font-weight: 600;
+}
+
+.status.reserved {
+  background: #dcfce7;
+  color: #166534;
 }
 
 .status.cancelled {
   background: #f3f4f6;
   color: #4b5563;
+}
+
+.status.requesting {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.status.pending {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .edit-panel {
@@ -408,9 +607,15 @@ select {
   margin-top: 20px;
 }
 
+.actions-wrap {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 .primary-button,
 .ghost-button,
-.danger-button {
+.danger-button,
+.warning-button {
   border: none;
   border-radius: 10px;
   padding: 10px 16px;
@@ -434,8 +639,14 @@ select {
   color: #b91c1c;
 }
 
+.warning-button {
+  background: #fef3c7;
+  color: #b45309;
+}
+
 .primary-button:disabled,
-.danger-button:disabled {
+.danger-button:disabled,
+.warning-button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -443,6 +654,10 @@ select {
 .inline-tip {
   margin-top: 16px;
   color: #4b5563;
+}
+
+.no-margin {
+  margin-top: 0;
 }
 
 .error-text {

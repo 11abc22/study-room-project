@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getAllReservations, deleteReservation, updateReservationStatus } from '@/services/adminApi'
+import { getReservationStatusMeta, isReservedStatus } from '@/constants/reservationStatus'
 
 const router = useRouter()
 
@@ -42,13 +43,11 @@ function formatTime(time) {
 }
 
 function statusText(status) {
-  const map = { 0: 'Cancelled by Admin', 1: 'Reserved', 2: 'Cancelled by User' }
-  return map[status] || 'Unknown'
+  return getReservationStatusMeta(status).label
 }
 
 function statusClass(status) {
-  if (status === 1) return 'active'
-  return 'cancelled'
+  return getReservationStatusMeta(status).className
 }
 
 async function handleCancel(id) {
@@ -65,6 +64,15 @@ async function handleCancel(id) {
   } finally {
     cancellingId.value = null
   }
+}
+
+function parseStatusValue(value) {
+  if (value === '') {
+    return ''
+  }
+
+  const numericValue = Number(value)
+  return Number.isNaN(numericValue) ? value : numericValue
 }
 
 async function handleUpdateStatus(id, newStatus) {
@@ -111,8 +119,10 @@ function goBack() {
           <select v-model="filterStatus">
             <option value="">All</option>
             <option value="1">Reserved</option>
-            <option value="0">Cancelled by Admin</option>
-            <option value="2">Cancelled by User</option>
+            <option value="0">Cancelled</option>
+            <option value="2">Cancelled</option>
+            <option value="REQUESTING">Requesting</option>
+            <option value="PENDING">Pending</option>
           </select>
         </label>
         <label>
@@ -160,7 +170,7 @@ function goBack() {
             <td>
               <div class="action-group">
                 <button
-                  v-if="r.status === 1"
+                  v-if="isReservedStatus(r.status)"
                   class="danger-button small"
                   :disabled="cancellingId === r.id"
                   @click="handleCancel(r.id)"
@@ -171,12 +181,14 @@ function goBack() {
                   v-else
                   class="status-select"
                   :disabled="updatingId === r.id"
-                  @change="handleUpdateStatus(r.id, Number($event.target.value)); $event.target.value = ''"
+                  @change="handleUpdateStatus(r.id, parseStatusValue($event.target.value)); $event.target.value = ''"
                 >
                   <option value="">Change status</option>
                   <option value="1">Set to Reserved</option>
-                  <option value="0">Set to Cancelled by Admin</option>
-                  <option value="2">Set to Cancelled by User</option>
+                  <option value="0">Set to Cancelled</option>
+                  <option value="2">Set to Cancelled</option>
+                  <option value="REQUESTING">Set to Requesting</option>
+                  <option value="PENDING">Set to Pending</option>
                 </select>
               </div>
             </td>
@@ -353,7 +365,7 @@ input, select {
   font-weight: 500;
 }
 
-.status.active {
+.status.reserved {
   background: #dcfce7;
   color: #166534;
 }
@@ -361,6 +373,16 @@ input, select {
 .status.cancelled {
   background: #f3f4f6;
   color: #4b5563;
+}
+
+.status.requesting {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.status.pending {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .action-group {

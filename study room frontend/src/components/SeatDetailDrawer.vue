@@ -56,10 +56,25 @@ const props = defineProps({
   endTime: {
     type: String,
     default: ''
+  },
+  swapAvailability: {
+    type: Object,
+    default: () => ({
+      canRequest: false,
+      reason: 'CAN_REQUEST'
+    })
+  },
+  checkingSwapAvailability: {
+    type: Boolean,
+    default: false
+  },
+  swapSubmitting: {
+    type: Boolean,
+    default: false
   }
 })
 
-const emit = defineEmits(['close', 'confirm-reserve', 'comment-created', 'update-time-range', 'timeline-hour-click', 'seat-timeline-loaded'])
+const emit = defineEmits(['close', 'confirm-reserve', 'request-swap', 'comment-created', 'update-time-range', 'timeline-hour-click', 'seat-timeline-loaded'])
 
 const comments = ref([])
 const loadingComments = ref(false)
@@ -108,6 +123,25 @@ const reserveDisabledReason = computed(() => {
 })
 
 const canReserve = computed(() => Boolean(props.seat) && !reserveDisabledReason.value)
+const showSwapButton = computed(() => Boolean(props.seat) && props.seat.seatStatus === 1 && props.seat.reserved && props.swapAvailability.reason !== 'OWN_SEAT')
+const swapHintText = computed(() => {
+  if (!showSwapButton.value) {
+    return ''
+  }
+
+  if (props.checkingSwapAvailability) {
+    return 'Checking whether this seat can receive a swap request...'
+  }
+
+  const reason = props.swapAvailability.reason
+  const reasonMap = {
+    ALREADY_REJECTED: 'You already requested this seat before.',
+    HAS_ACTIVE_REQUEST: 'You already have an active swap request for this time slot.',
+    SEAT_LOCKED: 'Another user is already requesting this seat.'
+  }
+
+  return reasonMap[reason] || ''
+})
 const remainingCharacters = computed(() => maxCommentLength - commentInput.value.length)
 const selectedStartHour = computed(() => toHour(props.startTime))
 const selectedEndHour = computed(() => toHour(props.endTime))
@@ -317,6 +351,14 @@ function handleReserve() {
   emit('confirm-reserve', props.seat)
 }
 
+function handleSwapRequest() {
+  if (!showSwapButton.value || props.checkingSwapAvailability || props.swapSubmitting) {
+    return
+  }
+
+  emit('request-swap', props.seat)
+}
+
 function setCommentFeedback(message, type) {
   commentFeedback.value = message
   commentFeedbackType.value = type
@@ -390,6 +432,16 @@ function formatDateTime(value) {
             >
               {{ reservingSeatId === seat.seatId ? 'Reserving...' : 'Confirm Reservation' }}
             </button>
+            <template v-if="showSwapButton">
+              <p v-if="swapHintText" class="hint info">{{ swapHintText }}</p>
+              <button
+                class="secondary-button full-width"
+                :disabled="checkingSwapAvailability || !swapAvailability.canRequest || swapSubmitting"
+                @click="handleSwapRequest"
+              >
+                {{ swapSubmitting ? 'Sending...' : checkingSwapAvailability ? 'Checking...' : 'Request Seat Swap' }}
+              </button>
+            </template>
           </section>
 
           <SeatTimeline
@@ -597,6 +649,7 @@ textarea {
 }
 
 .primary-button,
+.secondary-button,
 .text-button,
 .icon-button {
   border: none;
@@ -605,14 +658,25 @@ textarea {
   cursor: pointer;
 }
 
-.primary-button {
+.primary-button,
+.secondary-button {
   padding: 10px 16px;
-  background: #2563eb;
-  color: #fff;
   font-weight: 600;
 }
 
+.primary-button {
+  background: #2563eb;
+  color: #fff;
+}
+
+.secondary-button {
+  background: #eff6ff;
+  color: #1d4ed8;
+  margin-top: 10px;
+}
+
 .primary-button:disabled,
+.secondary-button:disabled,
 .text-button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
@@ -663,6 +727,10 @@ textarea {
 .hint.warning,
 .char-count.danger {
   color: #b45309;
+}
+
+.hint.info {
+  color: #1d4ed8;
 }
 
 .comment-list {
