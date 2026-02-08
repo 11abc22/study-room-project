@@ -7,6 +7,7 @@ const route = useRoute()
 const authStore = useAuthStore()
 
 const isAuthPage = computed(() => route.name === 'login' || route.name === 'register')
+const isAdmin = computed(() => authStore.user?.username === 'admin')
 </script>
 
 <template>
@@ -17,9 +18,16 @@ const isAuthPage = computed(() => route.name === 'login' || route.name === 'regi
       </div>
       <nav class="nav-links">
         <template v-if="authStore.isAuthenticated">
-          <RouterLink to="/dashboard">Home</RouterLink>
-          <RouterLink to="/rooms">Study Rooms</RouterLink>
-          <RouterLink to="/my-reservations">My Reservations</RouterLink>
+          <template v-if="isAdmin">
+            <RouterLink to="/dashboard">Home</RouterLink>
+            <RouterLink to="/admin/reservations">Reservation Management</RouterLink>
+            <RouterLink to="/admin/comments">Comment Management</RouterLink>
+          </template>
+          <template v-else>
+            <RouterLink to="/dashboard">Home</RouterLink>
+            <RouterLink to="/rooms">Study Rooms</RouterLink>
+            <RouterLink to="/my-reservations">My Reservations</RouterLink>
+          </template>
         </template>
         <template v-else>
           <RouterLink to="/login">Sign In</RouterLink>
