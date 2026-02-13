@@ -31,6 +31,10 @@ const cancellingId = ref(null)
 const savingId = ref(null)
 const withdrawingId = ref(null)
 
+const recordsPerPage = 5
+const maxPageCount = 10
+const currentPage = ref(1)
+
 const editingReservationId = ref(null)
 const editForm = ref({
   roomId: '',
@@ -78,6 +82,21 @@ const managedReservationSchedule = computed(() => {
   return formatSchedule(managedReservation.value)
 })
 
+const sortedReservations = computed(() =>
+  [...reservations.value].sort((left, right) => compareReservationRecency(left, right))
+)
+
+const totalPages = computed(() => {
+  const pageCount = Math.ceil(sortedReservations.value.length / recordsPerPage)
+  return Math.max(1, Math.min(pageCount, maxPageCount))
+})
+
+const paginatedReservations = computed(() => {
+  const startIndex = (currentPage.value - 1) * recordsPerPage
+  const endIndex = startIndex + recordsPerPage
+  return sortedReservations.value.slice(0, recordsPerPage * maxPageCount).slice(startIndex, endIndex)
+})
+
 async function loadBaseData() {
   loading.value = true
   errorMessage.value = ''
@@ -86,6 +105,7 @@ async function loadBaseData() {
     const [{ data: roomData }, { data: reservationData }] = await Promise.all([getRooms(), getMyReservations()])
     rooms.value = roomData
     reservations.value = decorateMyReservations(reservationData)
+    currentPage.value = 1
   } catch (error) {
     errorMessage.value = error.response?.data?.message || 'Failed to load reservation data. Please try again later.'
   } finally {
@@ -95,6 +115,25 @@ async function loadBaseData() {
 
 function formatSchedule(reservation) {
   return `${reservation.reserveDate} ${String(reservation.startTime).slice(0, 5)} - ${String(reservation.endTime).slice(0, 5)}`
+}
+
+function normalizeTimestamp(value) {
+  if (!value) {
+    return 0
+  }
+
+  const timestamp = new Date(value).getTime()
+  return Number.isNaN(timestamp) ? 0 : timestamp
+}
+
+function compareReservationRecency(left, right) {
+  const rightTime = normalizeTimestamp(right?.createdAt) || Number(right?.id) || 0
+  const leftTime = normalizeTimestamp(left?.createdAt) || Number(left?.id) || 0
+  return rightTime - leftTime
+}
+
+function goToPage(page) {
+  currentPage.value = Math.min(Math.max(page, 1), totalPages.value)
 }
 
 function reservationStatusMeta(status) {
@@ -369,10 +408,10 @@ onMounted(() => {
     <div v-if="errorMessage" class="feedback error">{{ errorMessage }}</div>
     <div v-if="successMessage" class="feedback success">{{ successMessage }}</div>
     <div v-if="loading" class="feedback">Loading your reservations...</div>
-    <div v-else-if="!reservations.length" class="feedback">You do not have any reservations yet.</div>
+    <div v-else-if="!sortedReservations.length" class="feedback">You do not have any reservations yet.</div>
 
     <div v-else class="reservation-list">
-      <article v-for="reservation in reservations" :key="reservation.id" class="reservation-card">
+      <article v-for="reservation in paginatedReservations" :key="reservation.id" class="reservation-card">
         <div class="reservation-header">
           <div>
             <h2>{{ reservation.roomName }} · {{ reservation.seatCode }}</h2>
@@ -472,6 +511,27 @@ onMounted(() => {
       </article>
     </div>
 
+    <div v-if="sortedReservations.length" class="pagination-card">
+      <p class="pagination-summary">
+        Page {{ currentPage }} of {{ totalPages }} · Showing {{ paginatedReservations.length }} records per page, newest first.
+      </p>
+      <p v-if="sortedReservations.length > recordsPerPage * maxPageCount" class="pagination-note">
+        Only the latest {{ recordsPerPage * maxPageCount }} reservation records are displayed.
+      </p>
+      <div class="pagination-actions">
+        <button class="ghost-button" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)">Previous</button>
+        <button
+          v-for="page in totalPages"
+          :key="`reservation-page-${page}`"
+          :class="['page-button', { active: currentPage === page }]"
+          @click="goToPage(page)"
+        >
+          {{ page }}
+        </button>
+        <button class="ghost-button" :disabled="currentPage === totalPages" @click="goToPage(currentPage + 1)">Next</button>
+      </div>
+    </div>
+
     <SwapRequestManagementModal
       :visible="swapManagementVisible"
       :reservation-title="managedReservationTitle"
@@ -528,6 +588,31 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.pagination-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 20px 24px;
+}
+
+.pagination-summary,
+.pagination-note {
+  margin: 0;
+  color: #4b5563;
+}
+
+.pagination-note {
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.pagination-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
 }
 
 .reservation-header {
@@ -615,7 +700,8 @@ select {
 .primary-button,
 .ghost-button,
 .danger-button,
-.warning-button {
+.warning-button,
+.page-button {
   border: none;
   border-radius: 10px;
   padding: 10px 16px;
@@ -644,9 +730,22 @@ select {
   color: #b45309;
 }
 
+.page-button {
+  background: #f3f4f6;
+  color: #374151;
+  min-width: 42px;
+}
+
+.page-button.active {
+  background: #2563eb;
+  color: #fff;
+}
+
 .primary-button:disabled,
+.ghost-button:disabled,
 .danger-button:disabled,
-.warning-button:disabled {
+.warning-button:disabled,
+.page-button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
 }
