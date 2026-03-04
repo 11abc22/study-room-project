@@ -2,7 +2,7 @@ package com.qinglinwen.study_room_backend.service;
 
 import com.qinglinwen.study_room_backend.entity.SwapRequest;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -16,9 +16,11 @@ public class TransactionalNotificationService implements NotificationService {
     private final NotificationService delegate;
     private final NotificationDispatchExecutor dispatchExecutor;
 
-    public TransactionalNotificationService(@Qualifier("notificationServiceDelegate") NotificationService delegate,
+    public TransactionalNotificationService(ObjectProvider<ResendNotificationService> resendNotificationServiceProvider,
+                                            LoggingNotificationService loggingNotificationService,
                                             NotificationDispatchExecutor dispatchExecutor) {
-        this.delegate = delegate;
+        ResendNotificationService resendNotificationService = resendNotificationServiceProvider.getIfAvailable();
+        this.delegate = resendNotificationService != null ? resendNotificationService : loggingNotificationService;
         this.dispatchExecutor = dispatchExecutor;
     }
 
