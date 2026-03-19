@@ -42,9 +42,9 @@ public class NotificationProperties {
         private String replyTo;
 
         /**
-         * Optional custom link path on the frontend.
+         * Optional custom link path on the frontend. Defaults to the public login page.
          */
-        private String swapRequestPath = "/swap-requests";
+        private String swapRequestPath = "/login";
 
         /**
          * Resend API base URL.

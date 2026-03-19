@@ -53,6 +53,12 @@ const router = createRouter({
       name: 'AdminComments',
       component: () => import('@/views/AdminCommentsView.vue'),
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/admin/notifications',
+      name: 'AdminNotifications',
+      component: () => import('@/views/AdminNotificationsView.vue'),
+      meta: { requiresAuth: true }
     }
   ]
 })
@@ -60,7 +66,7 @@ const router = createRouter({
 router.beforeEach((to) => {
   const authStore = useAuthStore()
   const isAdmin = authStore.user?.username === 'admin'
-  const adminRouteNames = new Set(['AdminReservations', 'AdminComments'])
+  const adminRouteNames = new Set(['AdminReservations', 'AdminComments', 'AdminNotifications'])
   const bookingRouteNames = new Set(['rooms', 'room-detail', 'my-reservations'])
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {

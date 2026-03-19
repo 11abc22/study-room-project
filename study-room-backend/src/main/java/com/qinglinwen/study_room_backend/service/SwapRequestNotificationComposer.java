@@ -127,7 +127,7 @@ public class SwapRequestNotificationComposer {
         String path = notificationProperties.getResend().getSwapRequestPath();
         String normalizedPath = StringUtils.hasText(path)
                 ? (path.startsWith("/") ? path : "/" + path)
-                : "/swap-requests";
+                : "/login";
         String separator = normalizedPath.contains("?") ? "&" : "?";
         return normalizedBaseUrl + normalizedPath + separator + "swapRequestId=" + URLEncoder.encode(String.valueOf(swapRequestId), StandardCharsets.UTF_8);
     }
