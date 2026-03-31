@@ -8,18 +8,24 @@ const apiClient = axios.create({
   }
 })
 
-// 添加请求拦截器
 apiClient.interceptors.request.use(
   (config) => {
     const authStore = useAuthStore()
-    if (authStore.token) {
-      config.headers.Authorization = `Bearer ${authStore.token}`
+    const userId = authStore.user?.id
+
+    if (userId) {
+      config.headers['X-User-Id'] = String(userId)
+    } else if (config.headers['X-User-Id']) {
+      delete config.headers['X-User-Id']
     }
+
+    if (config.headers.Authorization) {
+      delete config.headers.Authorization
+    }
+
     return config
   },
-  (error) => {
-    return Promise.reject(error)
-  }
+  (error) => Promise.reject(error)
 )
 
 export default apiClient

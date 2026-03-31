@@ -1,7 +1,4 @@
-// src/router/index.js
-
 import { createRouter, createWebHistory } from 'vue-router'
-// 导入我们的 auth store
 import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
@@ -9,16 +6,14 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: '/dashboard' // 现在让首页重定向到仪表盘
+      redirect: '/dashboard'
     },
-    // --- 创建一个新的受保护的路由 ---
     {
       path: '/dashboard',
       name: 'dashboard',
       component: () => import('@/views/DashboardView.vue'),
-      meta: { requiresAuth: true } // meta 字段，标记这个路由需要认证
+      meta: { requiresAuth: true }
     },
-    // -----------------------------
     {
       path: '/login',
       name: 'login',
@@ -32,18 +27,18 @@ const router = createRouter({
   ]
 })
 
-// --- 定义全局前置路由守卫 ---
-router.beforeEach((to, from, next) => {
+router.beforeEach((to) => {
   const authStore = useAuthStore()
-  
-  // 检查路由是否需要认证
+
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    // 如果需要认证但用户未登录，则重定向到登录页面
-    next({ name: 'login' })
-  } else {
-    // 否则，允许继续导航
-    next()
+    return { name: 'login' }
   }
+
+  if ((to.name === 'login' || to.name === 'register') && authStore.isAuthenticated) {
+    return { name: 'dashboard' }
+  }
+
+  return true
 })
 
 export default router
