@@ -1,0 +1,29 @@
+import apiClient from '@/services/api'
+
+export function getRooms() {
+  return apiClient.get('/api/rooms')
+}
+
+export function getRoomSeats(roomId) {
+  return apiClient.get(`/api/rooms/${roomId}/seats`)
+}
+
+export function getRoomSeatStatus(roomId, payload) {
+  return apiClient.post(`/api/reservations/seat-status/${roomId}`, payload)
+}
+
+export function createReservation(payload) {
+  return apiClient.post('/api/reservations', payload)
+}
+
+export function getMyReservations() {
+  return apiClient.get('/api/reservations/my')
+}
+
+export function updateReservation(reservationId, payload) {
+  return apiClient.put(`/api/reservations/${reservationId}`, payload)
+}
+
+export function cancelReservation(reservationId) {
+  return apiClient.delete(`/api/reservations/${reservationId}`)
+}
