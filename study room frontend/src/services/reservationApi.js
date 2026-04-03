@@ -27,3 +27,11 @@ export function updateReservation(reservationId, payload) {
 export function cancelReservation(reservationId) {
   return apiClient.delete(`/api/reservations/${reservationId}`)
 }
+
+export function getSeatComments(seatId) {
+  return apiClient.get(`/api/seats/${seatId}/comments`)
+}
+
+export function createSeatComment(seatId, payload) {
+  return apiClient.post(`/api/seats/${seatId}/comments`, payload)
+}
