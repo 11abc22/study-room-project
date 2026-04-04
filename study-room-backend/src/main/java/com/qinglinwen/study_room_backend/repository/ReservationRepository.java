@@ -41,4 +41,14 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     List<Reservation> findRoomReservations(Long roomId, LocalDate reserveDate, LocalTime startTime, LocalTime endTime);
 
     List<Reservation> findByUserIdOrderByCreatedAtDesc(Long userId);
+
+    List<Reservation> findByUserId(Long userId);
+
+    List<Reservation> findByReserveDate(LocalDate reserveDate);
+
+    List<Reservation> findByStatus(Integer status);
+
+    List<Reservation> findByReserveDateAndStatus(LocalDate reserveDate, Integer status);
+
+    List<Reservation> findByUserIdAndStatus(Long userId, Integer status);
 }

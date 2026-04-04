@@ -8,6 +8,8 @@ import java.time.LocalTime;
 @Data
 public class ReservationVO {
     private Long id;
+    private Long userId;
+    private String username;
     private Long roomId;
     private String roomName;
     private Long seatId;

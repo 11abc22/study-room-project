@@ -41,6 +41,18 @@ const router = createRouter({
       path: '/register',
       name: 'register',
       component: () => import('@/views/RegisterView.vue')
+    },
+    {
+      path: '/admin/reservations',
+      name: 'AdminReservations',
+      component: () => import('@/views/AdminReservationsView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/admin/comments',
+      name: 'AdminComments',
+      component: () => import('@/views/AdminCommentsView.vue'),
+      meta: { requiresAuth: true }
     }
   ]
 })
