@@ -36,13 +36,13 @@ public class SeatCommentController {
 
     private Long getCurrentUserId(String userIdHeader) {
         if (userIdHeader == null || userIdHeader.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "缺少 X-User-Id 请求头");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing X-User-Id header");
         }
 
         try {
             return Long.parseLong(userIdHeader);
         } catch (NumberFormatException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "X-User-Id 格式无效");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid X-User-Id format");
         }
     }
 }

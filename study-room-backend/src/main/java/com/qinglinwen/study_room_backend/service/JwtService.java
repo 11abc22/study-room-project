@@ -17,10 +17,9 @@ import java.util.function.Function;
 @Service
 public class JwtService {
 
-    // 固定密钥，开发阶段先这样写，后续可放到配置文件
     private static final String SECRET = "a2V5Zm9yc3R1ZHlyb29tcmVzZXJ2YXRpb25zeXN0ZW1kZW1vMTIzNDU2";
 
-    private final long EXPIRATION_TIME = 1000 * 60 * 60 * 24; // 24小时
+    private final long EXPIRATION_TIME = 1000 * 60 * 60 * 24;
 
     private Key getSignInKey() {
         byte[] keyBytes = Decoders.BASE64.decode(SECRET);
@@ -31,7 +30,7 @@ public class JwtService {
         Map<String, Object> claims = new HashMap<>();
         return Jwts.builder()
                 .setClaims(claims)
-                .setSubject(userDetails.getUsername()) // 这里存的是 email
+                .setSubject(userDetails.getUsername())
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)

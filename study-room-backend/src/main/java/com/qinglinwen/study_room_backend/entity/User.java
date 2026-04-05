@@ -1,11 +1,11 @@
 package com.qinglinwen.study_room_backend.entity;
 
-import jakarta.persistence.*; // Spring Boot 3 使用 jakarta
+import jakarta.persistence.*;
 import lombok.Data;
 
 @Data
 @Entity
-@Table(name = "users") // 指定数据库中的表名为 'users'
+@Table(name = "users")
 public class User {
 
     @Id
@@ -20,6 +20,4 @@ public class User {
 
     @Column(nullable = false)
     private String password;
-
-    // 省略了 created_at 等其他字段，可以后续添加
 }

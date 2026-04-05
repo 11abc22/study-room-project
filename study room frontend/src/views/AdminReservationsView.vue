@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getAllReservations, deleteReservation, updateReservationStatus } from '@/services/adminApi'
 
@@ -30,7 +30,7 @@ async function loadReservations() {
     const { data } = await getAllReservations(params)
     reservations.value = data
   } catch (error) {
-    errorMessage.value = error.response?.data?.message || '加载预约列表失败，请稍后重试。'
+    errorMessage.value = error.response?.data?.message || 'Failed to load reservations. Please try again later.'
   } finally {
     loading.value = false
   }
@@ -42,8 +42,8 @@ function formatTime(time) {
 }
 
 function statusText(status) {
-  const map = { 0: '已取消（管理员）', 1: '已预约', 2: '已取消' }
-  return map[status] || '未知'
+  const map = { 0: 'Cancelled by Admin', 1: 'Reserved', 2: 'Cancelled by User' }
+  return map[status] || 'Unknown'
 }
 
 function statusClass(status) {
@@ -58,10 +58,10 @@ async function handleCancel(id) {
 
   try {
     const { data } = await deleteReservation(id)
-    successMessage.value = data.message || '预约已取消'
+    successMessage.value = data.message || 'Reservation cancelled.'
     await loadReservations()
   } catch (error) {
-    errorMessage.value = error.response?.data?.message || '取消预约失败，请稍后重试。'
+    errorMessage.value = error.response?.data?.message || 'Failed to cancel the reservation. Please try again later.'
   } finally {
     cancellingId.value = null
   }
@@ -74,10 +74,10 @@ async function handleUpdateStatus(id, newStatus) {
 
   try {
     const { data } = await updateReservationStatus(id, newStatus)
-    successMessage.value = data.message || '状态已更新'
+    successMessage.value = data.message || 'Status updated.'
     await loadReservations()
   } catch (error) {
-    errorMessage.value = error.response?.data?.message || '更新状态失败，请稍后重试。'
+    errorMessage.value = error.response?.data?.message || 'Failed to update the status. Please try again later.'
   } finally {
     updatingId.value = null
   }
@@ -86,78 +86,74 @@ async function handleUpdateStatus(id, newStatus) {
 function goBack() {
   router.push({ name: 'dashboard' })
 }
-
-onMounted(() => {
-  loadReservations()
-})
 </script>
 
 <template>
   <section class="page">
     <header class="page-header">
       <div>
-        <p class="eyebrow">管理后台</p>
-        <h1>预约管理</h1>
-        <p>查看所有预约记录，支持筛选和操作。</p>
+        <p class="eyebrow">Admin Panel</p>
+        <h1>Reservation Management</h1>
+        <p>Review all reservations, apply filters, and update booking status.</p>
       </div>
-      <button class="ghost-button" @click="goBack">返回首页</button>
+      <button class="ghost-button" @click="goBack">Back to Home</button>
     </header>
 
     <div class="panel">
-      <h3>筛选条件</h3>
+      <h3>Filters</h3>
       <div class="filter-grid">
         <label>
-          <span>用户 ID</span>
-          <input v-model="filterUserId" type="number" placeholder="输入用户 ID" />
+          <span>User ID</span>
+          <input v-model="filterUserId" type="number" placeholder="Enter user ID" />
         </label>
         <label>
-          <span>状态</span>
+          <span>Status</span>
           <select v-model="filterStatus">
-            <option value="">全部</option>
-            <option value="1">已预约</option>
-            <option value="0">已取消（管理员）</option>
-            <option value="2">已取消</option>
+            <option value="">All</option>
+            <option value="1">Reserved</option>
+            <option value="0">Cancelled by Admin</option>
+            <option value="2">Cancelled by User</option>
           </select>
         </label>
         <label>
-          <span>日期</span>
+          <span>Date</span>
           <input v-model="filterDate" type="date" />
         </label>
       </div>
       <div class="actions">
-        <button class="primary-button" @click="loadReservations">查询</button>
-        <button class="ghost-button" @click="filterUserId = ''; filterStatus = ''; filterDate = ''; loadReservations()">重置</button>
+        <button class="primary-button" @click="loadReservations">Search</button>
+        <button class="ghost-button" @click="filterUserId = ''; filterStatus = ''; filterDate = ''; loadReservations()">Reset</button>
       </div>
     </div>
 
     <div v-if="errorMessage" class="feedback error">{{ errorMessage }}</div>
     <div v-if="successMessage" class="feedback success">{{ successMessage }}</div>
-    <div v-if="loading" class="feedback">正在加载预约列表...</div>
-    <div v-else-if="!reservations.length" class="feedback">没有找到符合条件的预约记录。</div>
+    <div v-if="loading" class="feedback">Loading reservations...</div>
+    <div v-else-if="!reservations.length" class="feedback">No reservations match the current filters.</div>
 
     <div v-else class="table-wrapper">
       <table class="data-table">
         <thead>
           <tr>
             <th>ID</th>
-            <th>用户</th>
-            <th>自习室</th>
-            <th>座位</th>
-            <th>日期</th>
-            <th>时间段</th>
-            <th>状态</th>
-            <th>操作</th>
+            <th>User</th>
+            <th>Study Room</th>
+            <th>Seat</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Status</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="r in reservations" :key="r.id">
             <td>{{ r.id }}</td>
             <td>
-              <span class="user-info">{{ r.username || '用户' + r.userId }}</span>
-              <span class="user-id">（ID: {{ r.userId }}）</span>
+              <span class="user-info">{{ r.username || `User ${r.userId}` }}</span>
+              <span class="user-id">(ID: {{ r.userId }})</span>
             </td>
-            <td>{{ r.roomName || '未知' }}</td>
-            <td>{{ r.seatCode || '未知' }}</td>
+            <td>{{ r.roomName || 'Unknown' }}</td>
+            <td>{{ r.seatCode || 'Unknown' }}</td>
             <td>{{ r.reserveDate }}</td>
             <td>{{ formatTime(r.startTime) }} - {{ formatTime(r.endTime) }}</td>
             <td><span :class="['status', statusClass(r.status)]">{{ statusText(r.status) }}</span></td>
@@ -169,7 +165,7 @@ onMounted(() => {
                   :disabled="cancellingId === r.id"
                   @click="handleCancel(r.id)"
                 >
-                  {{ cancellingId === r.id ? '取消中...' : '取消预约' }}
+                  {{ cancellingId === r.id ? 'Cancelling...' : 'Cancel Reservation' }}
                 </button>
                 <select
                   v-else
@@ -177,10 +173,10 @@ onMounted(() => {
                   :disabled="updatingId === r.id"
                   @change="handleUpdateStatus(r.id, Number($event.target.value)); $event.target.value = ''"
                 >
-                  <option value="">修改状态</option>
-                  <option value="1">设为已预约</option>
-                  <option value="0">设为已取消</option>
-                  <option value="2">设为用户取消</option>
+                  <option value="">Change status</option>
+                  <option value="1">Set to Reserved</option>
+                  <option value="0">Set to Cancelled by Admin</option>
+                  <option value="2">Set to Cancelled by User</option>
                 </select>
               </div>
             </td>
@@ -190,7 +186,7 @@ onMounted(() => {
     </div>
 
     <nav class="admin-nav">
-      <router-link :to="{ name: 'AdminComments' }" class="nav-link">管理留言 →</router-link>
+      <router-link :to="{ name: 'AdminComments' }" class="nav-link">Manage Comments →</router-link>
     </nav>
   </section>
 </template>

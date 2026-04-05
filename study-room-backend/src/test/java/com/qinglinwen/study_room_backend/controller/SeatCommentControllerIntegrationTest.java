@@ -77,16 +77,16 @@ class SeatCommentControllerIntegrationTest {
             mockMvc.perform(post("/api/seats/{seatId}/comments", seatId)
                             .header("X-User-Id", userId)
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"content\":\"留言" + i + "\"}"))
+                            .content("{\"content\":\"Comment " + i + "\"}"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content").value("留言" + i));
+                    .andExpect(jsonPath("$.content").value("Comment " + i));
         }
 
         mockMvc.perform(get("/api/seats/{seatId}/comments", seatId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(10))
-                .andExpect(jsonPath("$[0].content").value("留言11"))
-                .andExpect(jsonPath("$[9].content").value("留言2"));
+                .andExpect(jsonPath("$[0].content").value("Comment 11"))
+                .andExpect(jsonPath("$[9].content").value("Comment 2"));
     }
 
     @Test
@@ -95,16 +95,16 @@ class SeatCommentControllerIntegrationTest {
 
         mockMvc.perform(post("/api/seats/{seatId}/comments", seatId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"content\":\"你好\"}"))
+                        .content("{\"content\":\"Hi\"}"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message").value("缺少 X-User-Id 请求头"));
+                .andExpect(jsonPath("$.message").value("Missing X-User-Id header"));
 
         mockMvc.perform(post("/api/seats/{seatId}/comments", seatId)
                         .header("X-User-Id", userId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"content\":\"   \"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("留言内容不能为空"));
+                .andExpect(jsonPath("$.message").value("Comment content cannot be empty"));
 
         String longContent = "123456789012345678901234567890123456789012345678901";
         mockMvc.perform(post("/api/seats/{seatId}/comments", seatId)
@@ -112,7 +112,7 @@ class SeatCommentControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"content\":\"" + longContent + "\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("单条留言最多 50 个字"));
+                .andExpect(jsonPath("$.message").value("Each comment must be 50 characters or fewer"));
     }
 
     private Long registerAndLogin(String username, String email) throws Exception {

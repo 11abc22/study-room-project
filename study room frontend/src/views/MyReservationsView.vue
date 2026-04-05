@@ -44,7 +44,7 @@ async function loadBaseData() {
     rooms.value = roomData
     reservations.value = reservationData
   } catch (error) {
-    errorMessage.value = error.response?.data?.message || '加载预约信息失败，请稍后重试。'
+    errorMessage.value = error.response?.data?.message || 'Failed to load reservation data. Please try again later.'
   } finally {
     loading.value = false
   }
@@ -56,14 +56,14 @@ function formatSchedule(reservation) {
 
 function reservationStatusText(status) {
   if (status === 1) {
-    return '已预约'
+    return 'Reserved'
   }
 
   if (status === 2) {
-    return '已取消'
+    return 'Cancelled'
   }
 
-  return '未知状态'
+  return 'Unknown'
 }
 
 function validateEditForm() {
@@ -74,12 +74,12 @@ function validateEditForm() {
     !editForm.value.startTime ||
     !editForm.value.endTime
   ) {
-    editErrorMessage.value = '请完整填写房间、座位、日期和时间。'
+    editErrorMessage.value = 'Please complete the room, seat, date, and time fields.'
     return false
   }
 
   if (editForm.value.startTime >= editForm.value.endTime) {
-    editErrorMessage.value = '开始时间必须早于结束时间。'
+    editErrorMessage.value = 'Start time must be earlier than end time.'
     return false
   }
 
@@ -95,7 +95,7 @@ async function loadEditSeatStatus() {
   }
 
   if (editForm.value.startTime >= editForm.value.endTime) {
-    editErrorMessage.value = '开始时间必须早于结束时间。'
+    editErrorMessage.value = 'Start time must be earlier than end time.'
     return
   }
 
@@ -123,7 +123,7 @@ async function loadEditSeatStatus() {
       editForm.value.seatId = fallbackSeat ? String(fallbackSeat.seatId) : ''
     }
   } catch (error) {
-    editErrorMessage.value = error.response?.data?.message || '查询可编辑座位状态失败，请稍后重试。'
+    editErrorMessage.value = error.response?.data?.message || 'Failed to load editable seat availability. Please try again later.'
   } finally {
     loadingEditSeats.value = false
   }
@@ -169,11 +169,11 @@ async function submitEdit(reservationId) {
       endTime: editForm.value.endTime
     })
 
-    successMessage.value = data.message || '预约修改成功。'
+    successMessage.value = data.message || 'Reservation updated successfully.'
     cancelEdit()
     await loadBaseData()
   } catch (error) {
-    editErrorMessage.value = error.response?.data?.message || '修改预约失败，请稍后重试。'
+    editErrorMessage.value = error.response?.data?.message || 'Failed to update the reservation. Please try again later.'
   } finally {
     savingId.value = null
   }
@@ -186,13 +186,13 @@ async function handleCancelReservation(reservationId) {
 
   try {
     const { data } = await cancelReservation(reservationId)
-    successMessage.value = data.message || '预约已取消。'
+    successMessage.value = data.message || 'Reservation cancelled.'
     if (editingReservationId.value === reservationId) {
       cancelEdit()
     }
     await loadBaseData()
   } catch (error) {
-    errorMessage.value = error.response?.data?.message || '取消预约失败，请稍后重试。'
+    errorMessage.value = error.response?.data?.message || 'Failed to cancel the reservation. Please try again later.'
   } finally {
     cancellingId.value = null
   }
@@ -207,16 +207,16 @@ onMounted(() => {
   <section class="page">
     <header class="page-header">
       <div>
-        <p class="eyebrow">预约中心</p>
-        <h1>我的预约</h1>
-        <p>查看自己已创建的预约，支持取消预约，以及直接编辑并提交更新。</p>
+        <p class="eyebrow">Reservation Center</p>
+        <h1>My Reservations</h1>
+        <p>Review your reservations, cancel bookings, or edit an existing reservation.</p>
       </div>
     </header>
 
     <div v-if="errorMessage" class="feedback error">{{ errorMessage }}</div>
     <div v-if="successMessage" class="feedback success">{{ successMessage }}</div>
-    <div v-if="loading" class="feedback">正在加载我的预约...</div>
-    <div v-else-if="!reservations.length" class="feedback">当前还没有预约记录。</div>
+    <div v-if="loading" class="feedback">Loading your reservations...</div>
+    <div v-else-if="!reservations.length" class="feedback">You do not have any reservations yet.</div>
 
     <div v-else class="reservation-list">
       <article v-for="reservation in reservations" :key="reservation.id" class="reservation-card">
@@ -233,9 +233,9 @@ onMounted(() => {
         <div v-if="editingReservationId === reservation.id" class="edit-panel">
           <div class="form-grid">
             <label>
-              <span>房间</span>
+              <span>Room</span>
               <select v-model="editForm.roomId" @change="loadEditSeatStatus">
-                <option value="">请选择房间</option>
+                <option value="">Select a room</option>
                 <option v-for="room in roomOptions" :key="room.id" :value="String(room.id)">
                   {{ room.name }}
                 </option>
@@ -243,24 +243,24 @@ onMounted(() => {
             </label>
 
             <label>
-              <span>日期</span>
+              <span>Date</span>
               <input v-model="editForm.reserveDate" type="date" @change="loadEditSeatStatus" />
             </label>
 
             <label>
-              <span>开始时间</span>
+              <span>Start Time</span>
               <input v-model="editForm.startTime" type="time" @change="loadEditSeatStatus" />
             </label>
 
             <label>
-              <span>结束时间</span>
+              <span>End Time</span>
               <input v-model="editForm.endTime" type="time" @change="loadEditSeatStatus" />
             </label>
 
             <label>
-              <span>座位</span>
+              <span>Seat</span>
               <select v-model="editForm.seatId">
-                <option value="">请选择座位</option>
+                <option value="">Select a seat</option>
                 <option v-for="seat in editableAvailableSeats" :key="seat.seatId" :value="String(seat.seatId)">
                   {{ seat.seatCode }}
                 </option>
@@ -268,32 +268,32 @@ onMounted(() => {
             </label>
           </div>
 
-          <div v-if="loadingEditSeats" class="inline-tip">正在查询该时段可选座位...</div>
+          <div v-if="loadingEditSeats" class="inline-tip">Checking available seats for this time slot...</div>
           <div v-else-if="editableAvailableSeats.length" class="inline-tip success-text">
-            当前可选座位：{{ editableAvailableSeats.map((seat) => seat.seatCode).join('、') }}
+            Available seats: {{ editableAvailableSeats.map((seat) => seat.seatCode).join(', ') }}
           </div>
-          <div v-else class="inline-tip">当前条件下暂无可选座位。</div>
+          <div v-else class="inline-tip">No seats are available for the selected conditions.</div>
 
           <div v-if="editErrorMessage" class="inline-tip error-text">{{ editErrorMessage }}</div>
 
           <div class="actions">
             <button class="primary-button" :disabled="savingId === reservation.id" @click="submitEdit(reservation.id)">
-              {{ savingId === reservation.id ? '提交中...' : '提交修改' }}
+              {{ savingId === reservation.id ? 'Saving...' : 'Save Changes' }}
             </button>
-            <button class="ghost-button" @click="cancelEdit">取消编辑</button>
+            <button class="ghost-button" @click="cancelEdit">Discard</button>
           </div>
         </div>
 
         <div v-else class="actions">
           <button class="primary-button" :disabled="reservation.status !== 1" @click="startEdit(reservation)">
-            编辑预约
+            Edit Reservation
           </button>
           <button
             class="danger-button"
             :disabled="reservation.status !== 1 || cancellingId === reservation.id"
             @click="handleCancelReservation(reservation.id)"
           >
-            {{ cancellingId === reservation.id ? '取消中...' : '取消预约' }}
+            {{ cancellingId === reservation.id ? 'Cancelling...' : 'Cancel Reservation' }}
           </button>
         </div>
       </article>

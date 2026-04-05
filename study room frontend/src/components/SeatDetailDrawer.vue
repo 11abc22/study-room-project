@@ -40,27 +40,27 @@ const maxCommentCount = 10
 
 const seatStatusText = computed(() => {
   if (!props.seat) {
-    return '未选择'
+    return 'No seat selected'
   }
 
   if (props.seat.seatStatus !== 1) {
-    return '不可预约'
+    return 'Unavailable'
   }
 
-  return props.seat.reserved ? '已被预约' : '空闲可预约'
+  return props.seat.reserved ? 'Reserved' : 'Available'
 })
 
 const reserveDisabledReason = computed(() => {
   if (!props.seat) {
-    return '请先选择座位'
+    return 'Please select a seat first.'
   }
 
   if (props.seat.seatStatus !== 1) {
-    return '该座位当前不可预约，但仍可查看详情并留言'
+    return 'This seat is not reservable right now, but you can still view details and leave a comment.'
   }
 
   if (props.seat.reserved) {
-    return '该座位当前时段已被预约，不能重复预约，但仍可留言'
+    return 'This seat is already reserved for the selected time slot. You can still leave a comment.'
   }
 
   return ''
@@ -97,7 +97,7 @@ async function loadComments() {
     comments.value = data
   } catch (error) {
     comments.value = []
-    commentsError.value = error.response?.data?.message || '加载留言失败，请稍后重试。'
+    commentsError.value = error.response?.data?.message || 'Failed to load comments. Please try again later.'
   } finally {
     loadingComments.value = false
   }
@@ -112,12 +112,12 @@ async function submitComment() {
   const content = commentInput.value.trim()
 
   if (!content) {
-    setCommentFeedback('留言内容不能为空。', 'error')
+    setCommentFeedback('Comment content cannot be empty.', 'error')
     return
   }
 
   if (content.length > maxCommentLength) {
-    setCommentFeedback('单条留言最多 50 个字。', 'error')
+    setCommentFeedback('Each comment must be 50 characters or fewer.', 'error')
     return
   }
 
@@ -126,11 +126,11 @@ async function submitComment() {
   try {
     await createSeatComment(props.seat.seatId, { content })
     commentInput.value = ''
-    setCommentFeedback('留言发送成功。', 'success')
+    setCommentFeedback('Comment posted successfully.', 'success')
     await loadComments()
     emit('comment-created')
   } catch (error) {
-    setCommentFeedback(error.response?.data?.message || '留言发送失败，请稍后重试。', 'error')
+    setCommentFeedback(error.response?.data?.message || 'Failed to post the comment. Please try again later.', 'error')
   } finally {
     commentSubmitting.value = false
   }
@@ -159,7 +159,7 @@ function formatDateTime(value) {
     return '--'
   }
 
-  return new Date(value).toLocaleString('zh-CN', {
+  return new Date(value).toLocaleString('en-US', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -175,7 +175,7 @@ function formatDateTime(value) {
       <aside class="drawer-panel">
         <header class="drawer-header">
           <div>
-            <p class="drawer-eyebrow">座位详情</p>
+            <p class="drawer-eyebrow">Seat Details</p>
             <h3>{{ seat?.seatCode || '--' }}</h3>
           </div>
           <button class="icon-button" type="button" @click="emit('close')">×</button>
@@ -183,27 +183,27 @@ function formatDateTime(value) {
 
         <div v-if="seat" class="drawer-body">
           <section class="info-card">
-            <p><strong>座位号：</strong>{{ seat.seatCode }}</p>
-            <p><strong>当前状态：</strong>{{ loadingSeatStatus ? '状态刷新中...' : seatStatusText }}</p>
-            <p><strong>周边环境：</strong>{{ environmentTags.length ? environmentTags.join('、') : '普通区域' }}</p>
+            <p><strong>Seat:</strong> {{ seat.seatCode }}</p>
+            <p><strong>Status:</strong> {{ loadingSeatStatus ? 'Refreshing...' : seatStatusText }}</p>
+            <p><strong>Environment:</strong> {{ environmentTags.length ? environmentTags.join(', ') : 'Standard area' }}</p>
             <p v-if="reserveDisabledReason" class="hint warning">{{ reserveDisabledReason }}</p>
             <button
               class="primary-button full-width"
               :disabled="!canReserve || reservingSeatId === seat.seatId"
               @click="handleReserve"
             >
-              {{ reservingSeatId === seat.seatId ? '预约中...' : '确认预约' }}
+              {{ reservingSeatId === seat.seatId ? 'Reserving...' : 'Confirm Reservation' }}
             </button>
           </section>
 
           <section class="info-card comment-card">
             <div class="comment-header">
               <div>
-                <h4>留言板</h4>
-                <p>最多保留最新 {{ maxCommentCount }} 条，每条不超过 {{ maxCommentLength }} 字。</p>
+                <h4>Comment Board</h4>
+                <p>Up to {{ maxCommentCount }} recent comments are kept, with a {{ maxCommentLength }}-character limit each.</p>
               </div>
               <button class="text-button" type="button" :disabled="loadingComments" @click="loadComments">
-                {{ loadingComments ? '加载中...' : '刷新留言' }}
+                {{ loadingComments ? 'Loading...' : 'Refresh' }}
               </button>
             </div>
 
@@ -212,14 +212,14 @@ function formatDateTime(value) {
                 v-model="commentInput"
                 :maxlength="maxCommentLength"
                 rows="3"
-                placeholder="请输入想留在该座位留言板上的内容"
+                placeholder="Leave a comment for this seat"
               ></textarea>
               <div class="comment-form-footer">
                 <span class="char-count" :class="{ danger: remainingCharacters < 10 }">
-                  还可输入 {{ remainingCharacters }} 字
+                  {{ remainingCharacters }} characters left
                 </span>
                 <button class="primary-button" type="button" :disabled="commentSubmitting" @click="submitComment">
-                  {{ commentSubmitting ? '发送中...' : '发送留言' }}
+                  {{ commentSubmitting ? 'Posting...' : 'Post Comment' }}
                 </button>
               </div>
             </div>
@@ -228,12 +228,12 @@ function formatDateTime(value) {
               {{ commentFeedback }}
             </div>
             <div v-if="commentsError" class="feedback error">{{ commentsError }}</div>
-            <div v-else-if="loadingComments" class="feedback inline">留言加载中...</div>
-            <div v-else-if="!comments.length" class="empty-state">当前还没有留言，欢迎留下第一条。</div>
+            <div v-else-if="loadingComments" class="feedback inline">Loading comments...</div>
+            <div v-else-if="!comments.length" class="empty-state">No comments yet. Be the first to leave one.</div>
             <ul v-else class="comment-list">
               <li v-for="comment in comments" :key="comment.id" class="comment-item">
                 <div class="comment-meta">
-                  <strong>{{ comment.username || `用户${comment.userId}` }}</strong>
+                  <strong>{{ comment.username || `User ${comment.userId}` }}</strong>
                   <span>{{ formatDateTime(comment.createdAt) }}</span>
                 </div>
                 <p>{{ comment.content }}</p>

@@ -60,7 +60,7 @@ public class SeatCommentService {
         validateRequest(request);
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "用户不存在"));
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "User not found"));
 
         SeatComment comment = new SeatComment();
         comment.setSeatId(seatId);
@@ -74,21 +74,21 @@ public class SeatCommentService {
 
     private void ensureSeatExists(Long seatId) {
         Seat seat = seatRepository.findById(seatId)
-                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "座位不存在"));
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Seat not found"));
 
         if (seat.getId() == null) {
-            throw new ResponseStatusException(NOT_FOUND, "座位不存在");
+            throw new ResponseStatusException(NOT_FOUND, "Seat not found");
         }
     }
 
     private void validateRequest(SeatCommentCreateRequest request) {
         if (request == null || request.getContent() == null || request.getContent().trim().isEmpty()) {
-            throw new ResponseStatusException(BAD_REQUEST, "留言内容不能为空");
+            throw new ResponseStatusException(BAD_REQUEST, "Comment content cannot be empty");
         }
 
         String content = request.getContent().trim();
         if (content.length() > MAX_COMMENT_LENGTH) {
-            throw new ResponseStatusException(BAD_REQUEST, "单条留言最多 50 个字");
+            throw new ResponseStatusException(BAD_REQUEST, "Each comment must be 50 characters or fewer");
         }
     }
 
@@ -111,7 +111,7 @@ public class SeatCommentService {
         vo.setId(comment.getId());
         vo.setSeatId(comment.getSeatId());
         vo.setUserId(comment.getUserId());
-        vo.setUsername(user != null ? user.getUsername() : "用户" + comment.getUserId());
+        vo.setUsername(user != null ? user.getUsername() : "User " + comment.getUserId());
         vo.setContent(comment.getContent());
         vo.setCreatedAt(comment.getCreatedAt());
         vo.setSeatCode(getSeatCode(comment.getSeatId()));
@@ -121,6 +121,6 @@ public class SeatCommentService {
     private String getSeatCode(Long seatId) {
         return seatRepository.findById(seatId)
                 .map(Seat::getSeatCode)
-                .orElse("未知座位");
+                .orElse("Unknown seat");
     }
 }
