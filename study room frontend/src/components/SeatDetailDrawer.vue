@@ -59,7 +59,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['close', 'confirm-reserve', 'comment-created', 'update-time-range'])
+const emit = defineEmits(['close', 'confirm-reserve', 'comment-created', 'update-time-range', 'timeline-hour-click', 'seat-timeline-loaded'])
 
 const comments = ref([])
 const loadingComments = ref(false)
@@ -71,6 +71,10 @@ const commentFeedbackType = ref('success')
 const seatTimeline = ref([])
 const loadingSeatTimeline = ref(false)
 const seatTimelineError = ref('')
+const lastCommentsSeatId = ref(null)
+const lastTimelineRequestKey = ref('')
+let commentsRequestToken = 0
+let timelineRequestToken = 0
 
 const maxCommentLength = 50
 const maxCommentCount = 10
@@ -120,71 +124,118 @@ const selectedTimeRangeText = computed(() => {
 })
 
 watch(
-  () => [props.visible, props.seat?.seatId],
-  async ([visible, seatId]) => {
-    resetCommentFeedback()
-    commentInput.value = ''
-    comments.value = []
-    commentsError.value = ''
+  () => [props.visible, props.seat?.seatId, props.reserveDate],
+  async ([visible, seatId, reserveDate], [previousVisible, previousSeatId, previousReserveDate]) => {
+    const opened = visible && !previousVisible
+    const seatChanged = seatId !== previousSeatId
+    const dateChanged = reserveDate !== previousReserveDate
 
-    if (visible && seatId) {
-      await Promise.all([loadComments(), loadSeatTimeline()])
-    }
-  },
-  { immediate: false }
-)
-
-watch(
-  () => [props.reserveDate, props.seat?.seatId, props.visible],
-  async ([reserveDate, seatId, visible]) => {
-    if (visible && reserveDate && seatId) {
-      await loadSeatTimeline()
+    if (!visible) {
       return
+    }
+
+    if (opened || seatChanged) {
+      resetCommentFeedback()
+      commentInput.value = ''
+      comments.value = []
+      commentsError.value = ''
+      lastCommentsSeatId.value = null
+      await loadComments({ force: true })
     }
 
     if (!reserveDate) {
       seatTimeline.value = []
       seatTimelineError.value = ''
+      lastTimelineRequestKey.value = ''
+      return
     }
-  }
+
+    if (opened || seatChanged || dateChanged) {
+      await loadSeatTimeline({ force: true })
+    }
+  },
+  { immediate: false }
 )
 
-async function loadComments() {
-  if (!props.seat?.seatId) {
+async function loadComments(options = {}) {
+  const seatId = props.seat?.seatId
+
+  if (!seatId) {
     return
   }
 
+  if (!options.force && lastCommentsSeatId.value === seatId) {
+    return
+  }
+
+  const requestToken = ++commentsRequestToken
   loadingComments.value = true
   commentsError.value = ''
 
   try {
-    const { data } = await getSeatComments(props.seat.seatId)
+    const { data } = await getSeatComments(seatId)
+
+    if (requestToken !== commentsRequestToken) {
+      return
+    }
+
     comments.value = data
+    lastCommentsSeatId.value = seatId
   } catch (error) {
+    if (requestToken !== commentsRequestToken) {
+      return
+    }
+
     comments.value = []
     commentsError.value = error.response?.data?.message || 'Failed to load comments. Please try again later.'
   } finally {
-    loadingComments.value = false
+    if (requestToken === commentsRequestToken) {
+      loadingComments.value = false
+    }
   }
 }
 
-async function loadSeatTimeline() {
-  seatTimeline.value = []
-  seatTimelineError.value = ''
+async function loadSeatTimeline(options = {}) {
+  const seatId = props.seat?.seatId
+  const reserveDate = props.reserveDate
 
-  if (!props.seat?.seatId || !props.reserveDate) {
+  if (!seatId || !reserveDate) {
+    seatTimeline.value = []
+    seatTimelineError.value = ''
+    lastTimelineRequestKey.value = ''
     return
   }
 
+  const requestKey = `${seatId}-${reserveDate}`
+  if (!options.force && lastTimelineRequestKey.value === requestKey) {
+    return
+  }
+
+  const requestToken = ++timelineRequestToken
+  seatTimeline.value = []
+  seatTimelineError.value = ''
   loadingSeatTimeline.value = true
 
   try {
-    const { data } = await getSeatTimeline(props.seat.seatId, props.reserveDate)
+    const { data } = await getSeatTimeline(seatId, reserveDate)
+
+    if (requestToken !== timelineRequestToken) {
+      return
+    }
+
     seatTimeline.value = data
+    lastTimelineRequestKey.value = requestKey
+    emit('seat-timeline-loaded', data)
   } catch (error) {
+    if (requestToken !== timelineRequestToken) {
+      return
+    }
+
     seatTimelineError.value = error.response?.data?.message || 'Failed to load seat timeline. Please try again later.'
   } finally {
-    loadingSeatTimeline.value = false
+    if (requestToken === timelineRequestToken) {
+      loadingSeatTimeline.value = false
+    }
   }
 }
 
@@ -219,6 +270,10 @@ function handleEndTimeChange(event) {
   }
 
   emitTimeRange(props.startTime, nextEndTime)
+}
+
+function handleTimelineHourClick(hour) {
+  emit('timeline-hour-click', hour)
 }
 
 async function submitComment() {
@@ -307,7 +362,7 @@ function formatDateTime(value) {
             <div class="selected-time-card">
               <span class="selected-time-label">Current Selection</span>
               <strong>{{ selectedTimeRangeText }}</strong>
-              <p>Choose the reservation time from the selectors below. The timeline will highlight the pending range in blue.</p>
+              <p>Click the timeline to set the start and end hours. The selectors below are kept as auxiliary adjustments.</p>
             </div>
             <div class="time-select-grid">
               <label>
@@ -343,6 +398,7 @@ function formatDateTime(value) {
             :error="seatTimelineError"
             :selected-start-hour="selectedStartHour"
             :selected-end-hour="selectedEndHour"
+            @hour-click="handleTimelineHourClick"
           />
 
           <section class="info-card comment-card">
