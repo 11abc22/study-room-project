@@ -1,6 +1,28 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { createSeatComment, getSeatComments } from '@/services/reservationApi'
+import SeatTimeline from '@/components/SeatTimeline.vue'
+import { createSeatComment, getSeatComments, getSeatTimeline } from '@/services/reservationApi'
+
+const timeOptions = Array.from({ length: 16 }, (_, index) => {
+  const hour = index + 8
+  return {
+    label: `${String(hour).padStart(2, '0')}:00`,
+    value: `${String(hour).padStart(2, '0')}:00`
+  }
+})
+
+function toHour(value) {
+  if (!value) {
+    return null
+  }
+
+  const [hour] = value.split(':')
+  return Number(hour)
+}
+
+function toTimeString(hour) {
+  return `${String(hour).padStart(2, '0')}:00`
+}
 
 const props = defineProps({
   visible: {
@@ -22,10 +44,22 @@ const props = defineProps({
   reservingSeatId: {
     type: Number,
     default: null
+  },
+  reserveDate: {
+    type: String,
+    default: ''
+  },
+  startTime: {
+    type: String,
+    default: ''
+  },
+  endTime: {
+    type: String,
+    default: ''
   }
 })
 
-const emit = defineEmits(['close', 'confirm-reserve', 'comment-created'])
+const emit = defineEmits(['close', 'confirm-reserve', 'comment-created', 'update-time-range'])
 
 const comments = ref([])
 const loadingComments = ref(false)
@@ -34,6 +68,9 @@ const commentInput = ref('')
 const commentSubmitting = ref(false)
 const commentFeedback = ref('')
 const commentFeedbackType = ref('success')
+const seatTimeline = ref([])
+const loadingSeatTimeline = ref(false)
+const seatTimelineError = ref('')
 
 const maxCommentLength = 50
 const maxCommentCount = 10
@@ -68,6 +105,19 @@ const reserveDisabledReason = computed(() => {
 
 const canReserve = computed(() => Boolean(props.seat) && !reserveDisabledReason.value)
 const remainingCharacters = computed(() => maxCommentLength - commentInput.value.length)
+const selectedStartHour = computed(() => toHour(props.startTime))
+const selectedEndHour = computed(() => toHour(props.endTime))
+const selectedTimeRangeText = computed(() => {
+  if (!props.reserveDate) {
+    return 'Select a date first'
+  }
+
+  if (!props.startTime || !props.endTime) {
+    return 'Choose a start time and an end time'
+  }
+
+  return `${props.reserveDate} ${props.startTime} - ${props.endTime}`
+})
 
 watch(
   () => [props.visible, props.seat?.seatId],
@@ -78,10 +128,25 @@ watch(
     commentsError.value = ''
 
     if (visible && seatId) {
-      await loadComments()
+      await Promise.all([loadComments(), loadSeatTimeline()])
     }
   },
   { immediate: false }
+)
+
+watch(
+  () => [props.reserveDate, props.seat?.seatId, props.visible],
+  async ([reserveDate, seatId, visible]) => {
+    if (visible && reserveDate && seatId) {
+      await loadSeatTimeline()
+      return
+    }
+
+    if (!reserveDate) {
+      seatTimeline.value = []
+      seatTimelineError.value = ''
+    }
+  }
 )
 
 async function loadComments() {
@@ -101,6 +166,59 @@ async function loadComments() {
   } finally {
     loadingComments.value = false
   }
+}
+
+async function loadSeatTimeline() {
+  seatTimeline.value = []
+  seatTimelineError.value = ''
+
+  if (!props.seat?.seatId || !props.reserveDate) {
+    return
+  }
+
+  loadingSeatTimeline.value = true
+
+  try {
+    const { data } = await getSeatTimeline(props.seat.seatId, props.reserveDate)
+    seatTimeline.value = data
+  } catch (error) {
+    seatTimelineError.value = error.response?.data?.message || 'Failed to load seat timeline. Please try again later.'
+  } finally {
+    loadingSeatTimeline.value = false
+  }
+}
+
+function emitTimeRange(startTime, endTime) {
+  emit('update-time-range', {
+    startTime,
+    endTime
+  })
+}
+
+function handleStartTimeChange(event) {
+  const nextStartTime = event.target.value
+  const nextStartHour = toHour(nextStartTime)
+  const currentEndHour = selectedEndHour.value
+
+  if (currentEndHour === null || nextStartHour >= currentEndHour) {
+    emitTimeRange(nextStartTime, toTimeString(Math.min(nextStartHour + 1, 23)))
+    return
+  }
+
+  emitTimeRange(nextStartTime, props.endTime)
+}
+
+function handleEndTimeChange(event) {
+  const nextEndTime = event.target.value
+  const nextEndHour = toHour(nextEndTime)
+  const currentStartHour = selectedStartHour.value
+
+  if (currentStartHour === null || nextEndHour <= currentStartHour) {
+    emitTimeRange(toTimeString(Math.max(nextEndHour - 1, 8)), nextEndTime)
+    return
+  }
+
+  emitTimeRange(props.startTime, nextEndTime)
 }
 
 async function submitComment() {
@@ -186,6 +304,29 @@ function formatDateTime(value) {
             <p><strong>Seat:</strong> {{ seat.seatCode }}</p>
             <p><strong>Status:</strong> {{ loadingSeatStatus ? 'Refreshing...' : seatStatusText }}</p>
             <p><strong>Environment:</strong> {{ environmentTags.length ? environmentTags.join(', ') : 'Standard area' }}</p>
+            <div class="selected-time-card">
+              <span class="selected-time-label">Current Selection</span>
+              <strong>{{ selectedTimeRangeText }}</strong>
+              <p>Choose the reservation time from the selectors below. The timeline will highlight the pending range in blue.</p>
+            </div>
+            <div class="time-select-grid">
+              <label>
+                <span>Start Time</span>
+                <select :value="startTime" @change="handleStartTimeChange">
+                  <option v-for="option in timeOptions.slice(0, -1)" :key="`start-${option.value}`" :value="option.value">
+                    {{ option.label }}
+                  </option>
+                </select>
+              </label>
+              <label>
+                <span>End Time</span>
+                <select :value="endTime" @change="handleEndTimeChange">
+                  <option v-for="option in timeOptions.slice(1)" :key="`end-${option.value}`" :value="option.value">
+                    {{ option.label }}
+                  </option>
+                </select>
+              </label>
+            </div>
             <p v-if="reserveDisabledReason" class="hint warning">{{ reserveDisabledReason }}</p>
             <button
               class="primary-button full-width"
@@ -195,6 +336,14 @@ function formatDateTime(value) {
               {{ reservingSeatId === seat.seatId ? 'Reserving...' : 'Confirm Reservation' }}
             </button>
           </section>
+
+          <SeatTimeline
+            :timeline="seatTimeline"
+            :loading="loadingSeatTimeline"
+            :error="seatTimelineError"
+            :selected-start-hour="selectedStartHour"
+            :selected-end-hour="selectedEndHour"
+          />
 
           <section class="info-card comment-card">
             <div class="comment-header">
@@ -304,6 +453,50 @@ function formatDateTime(value) {
   color: #475569;
 }
 
+.selected-time-card {
+  margin: 14px 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+
+.selected-time-card strong {
+  display: block;
+  margin-top: 4px;
+  color: #1e3a8a;
+}
+
+.selected-time-label {
+  font-size: 12px;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.selected-time-card p {
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
+.time-select-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.time-select-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #334155;
+  font-weight: 600;
+}
+
+.time-select-grid span {
+  font-size: 13px;
+}
+
 .comment-header,
 .comment-form-footer,
 .comment-meta {
@@ -334,11 +527,16 @@ function formatDateTime(value) {
   gap: 10px;
 }
 
+select,
 textarea {
   border: 1px solid #cbd5e1;
   border-radius: 12px;
   padding: 12px;
   font: inherit;
+  background: #fff;
+}
+
+textarea {
   resize: vertical;
 }
 
@@ -459,9 +657,11 @@ textarea {
     width: 100%;
   }
 
+  .time-select-grid,
   .comment-header,
   .comment-form-footer,
   .comment-meta {
+    grid-template-columns: 1fr;
     flex-direction: column;
     align-items: flex-start;
   }

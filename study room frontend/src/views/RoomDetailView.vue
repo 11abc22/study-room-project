@@ -1,11 +1,12 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import RoomTimeline from '@/components/RoomTimeline.vue'
 import SeatMap from '@/components/SeatMap.vue'
 import SeatDetailDrawer from '@/components/SeatDetailDrawer.vue'
 import { getRoomMapConfig } from '@/config/roomMapConfig'
 import { createSeatMapLayout, getSeatEnvironmentTags } from '@/utils/seatMapLayout'
-import { createReservation, getRoomSeatStatus, getRooms } from '@/services/reservationApi'
+import { createReservation, getRoomSeatStatus, getRoomTimeline, getRooms } from '@/services/reservationApi'
 
 const route = useRoute()
 const roomId = computed(() => Number(route.params.id))
@@ -13,17 +14,28 @@ const roomId = computed(() => Number(route.params.id))
 const room = ref(null)
 const loadingRoom = ref(false)
 const loadingSeats = ref(false)
+const loadingRoomTimeline = ref(false)
 const reservingSeatId = ref(null)
 const roomError = ref('')
 const seatError = ref('')
+const roomTimelineError = ref('')
 const successMessage = ref('')
 const selectedSeat = ref(null)
 const drawerVisible = ref(false)
+const roomTimeline = ref([])
+
+const timeOptions = Array.from({ length: 16 }, (_, index) => {
+  const hour = index + 8
+  return {
+    label: `${String(hour).padStart(2, '0')}:00`,
+    value: `${String(hour).padStart(2, '0')}:00`
+  }
+})
 
 const form = ref({
   reserveDate: '',
-  startTime: '09:00',
-  endTime: '11:00'
+  startTime: '08:00',
+  endTime: '09:00'
 })
 
 const seatStatusList = ref([])
@@ -73,6 +85,39 @@ function validateTimeRange() {
   return true
 }
 
+function toTimeString(hour) {
+  return `${String(hour).padStart(2, '0')}:00`
+}
+
+function applySuggestedHour(hour) {
+  updateTimeRange({
+    startTime: toTimeString(hour),
+    endTime: toTimeString(hour + 1)
+  })
+}
+
+function findSuggestedHour(timeline = []) {
+  const availableHour = timeline.find((item) => {
+    if (!item) {
+      return false
+    }
+
+    return item.status !== 'busy' && item.available > 0
+  })
+
+  return availableHour?.hour ?? 8
+}
+
+function updateTimeRange({ startTime, endTime }) {
+  if (startTime) {
+    form.value.startTime = startTime
+  }
+
+  if (endTime) {
+    form.value.endTime = endTime
+  }
+}
+
 async function loadRoom() {
   loadingRoom.value = true
   roomError.value = ''
@@ -91,9 +136,33 @@ async function loadRoom() {
   }
 }
 
+async function loadRoomTimeline() {
+  roomTimeline.value = []
+  roomTimelineError.value = ''
+
+  if (!form.value.reserveDate) {
+    return []
+  }
+
+  loadingRoomTimeline.value = true
+
+  try {
+    const { data } = await getRoomTimeline(roomId.value, form.value.reserveDate)
+    roomTimeline.value = data
+    return data
+  } catch (error) {
+    roomTimelineError.value = error.response?.data?.message || 'Failed to load room timeline. Please try again later.'
+    return []
+  } finally {
+    loadingRoomTimeline.value = false
+  }
+}
+
 async function querySeatStatus(options = {}) {
-  successMessage.value = ''
-  seatError.value = ''
+  if (!options.silent) {
+    successMessage.value = ''
+    seatError.value = ''
+  }
 
   if (!validateTimeRange()) {
     return
@@ -106,11 +175,11 @@ async function querySeatStatus(options = {}) {
     const { data } = await getRoomSeatStatus(roomId.value, buildPayload())
     seatStatusList.value = data
 
-    if (options.preserveSelectedSeat && selectedSeat.value) {
-      selectedSeat.value = data.find((item) => item.seatId === selectedSeat.value.seatId) || null
-      drawerVisible.value = Boolean(selectedSeat.value)
-    } else {
-      selectedSeat.value = null
+    if (selectedSeat.value) {
+      const nextSelectedSeat = data.find((item) => item.seatId === selectedSeat.value.seatId) || null
+      selectedSeat.value = nextSelectedSeat
+      drawerVisible.value = options.preserveSelectedSeat ? Boolean(nextSelectedSeat) : drawerVisible.value
+    } else if (!options.keepSelection) {
       drawerVisible.value = false
     }
   } catch (error) {
@@ -139,6 +208,7 @@ async function reserveSeat(seat = selectedSeat.value) {
   try {
     const { data } = await createReservation(buildPayload(seat.seatId))
     successMessage.value = `${seat.seatCode} reserved successfully. ${data.message || ''}`.trim()
+    await loadRoomTimeline()
     await querySeatStatus({ preserveSelectedSeat: true })
   } catch (error) {
     seatError.value = error.response?.data?.message || 'Failed to create the reservation. Please try again later.'
@@ -166,6 +236,52 @@ function handleSelectSeat(seat) {
   seatError.value = ''
 }
 
+watch(
+  () => form.value.reserveDate,
+  async (reserveDate) => {
+    seatStatusList.value = []
+    hasQueried.value = false
+    selectedSeat.value = null
+    drawerVisible.value = false
+
+    if (!reserveDate) {
+      roomTimeline.value = []
+      return
+    }
+
+    const timeline = await loadRoomTimeline()
+    const suggestedHour = findSuggestedHour(timeline)
+    applySuggestedHour(suggestedHour)
+
+    if (!timeline.some((item) => item.status !== 'busy' && item.available > 0)) {
+      seatError.value = 'The room is full for every hourly slot on the selected date. Showing 08:00-09:00 as the default query range.'
+    } else {
+      seatError.value = ''
+    }
+
+    await querySeatStatus({ keepSelection: false })
+  }
+)
+
+watch(
+  () => [form.value.startTime, form.value.endTime],
+  async ([startTime, endTime], [previousStartTime, previousEndTime]) => {
+    if (!form.value.reserveDate || !startTime || !endTime) {
+      return
+    }
+
+    if (startTime === previousStartTime && endTime === previousEndTime) {
+      return
+    }
+
+    if (!validateTimeRange()) {
+      return
+    }
+
+    await querySeatStatus({ preserveSelectedSeat: true, keepSelection: true, silent: true })
+  }
+)
+
 onMounted(() => {
   loadRoom()
 })
@@ -192,24 +308,38 @@ onMounted(() => {
       </header>
 
       <section class="panel">
-        <h2>Select a Time Slot</h2>
-        <div class="form-grid">
+        <div class="panel-heading">
+          <div>
+            <h2>Select a Time Slot</h2>
+            <p>After you choose a date, the system automatically opens the seat list and suggests the first available one-hour slot from 08:00 onward.</p>
+          </div>
+        </div>
+        <div class="form-grid compact-form-grid">
           <label>
             <span>Date</span>
             <input v-model="form.reserveDate" type="date" />
           </label>
           <label>
             <span>Start Time</span>
-            <input v-model="form.startTime" type="time" />
+            <select v-model="form.startTime">
+              <option v-for="option in timeOptions.slice(0, -1)" :key="`room-start-${option.value}`" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
           </label>
           <label>
             <span>End Time</span>
-            <input v-model="form.endTime" type="time" />
+            <select v-model="form.endTime">
+              <option v-for="option in timeOptions.slice(1)" :key="`room-end-${option.value}`" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
           </label>
         </div>
+        <RoomTimeline :timeline="roomTimeline" :loading="loadingRoomTimeline" :error="roomTimelineError" />
         <div class="actions">
           <button class="primary-button" :disabled="loadingSeats || room.status !== 1" @click="querySeatStatus()">
-            {{ loadingSeats ? 'Checking...' : 'Check Seat Availability' }}
+            {{ loadingSeats ? 'Refreshing...' : 'Refresh Seat Availability' }}
           </button>
         </div>
       </section>
@@ -222,7 +352,7 @@ onMounted(() => {
           <div>
             <h2>2D Seat Map</h2>
             <p v-if="hasQueried">Available seats for this time slot: {{ availableSeats.length }}. Click any seat to view details, leave a comment, or reserve it.</p>
-            <p v-else>Select a time slot and check availability, then click any seat on the map to view details.</p>
+            <p v-else>Select a date to automatically load seat availability, then click any seat on the map to view details.</p>
           </div>
         </div>
 
@@ -273,8 +403,12 @@ onMounted(() => {
         :environment-tags="selectedSeatEnvironment"
         :loading-seat-status="loadingSeats"
         :reserving-seat-id="reservingSeatId"
+        :reserve-date="form.reserveDate"
+        :start-time="form.startTime"
+        :end-time="form.endTime"
         @close="drawerVisible = false"
         @confirm-reserve="reserveSeat"
+        @update-time-range="updateTimeRange"
       />
     </template>
   </section>
@@ -327,11 +461,26 @@ onMounted(() => {
   color: #4b5563;
 }
 
+.panel-heading p {
+  margin: 8px 0 0;
+  color: #64748b;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 16px;
   margin-top: 16px;
+}
+
+.compact-form-grid label {
+  font-size: 14px;
+  color: #64748b;
+}
+
+.compact-form-grid input,
+.compact-form-grid select {
+  background: #f8fafc;
 }
 
 label {
@@ -342,7 +491,8 @@ label {
   font-weight: 500;
 }
 
-input {
+input,
+select {
   border: 1px solid #d1d5db;
   border-radius: 10px;
   padding: 10px 12px;
