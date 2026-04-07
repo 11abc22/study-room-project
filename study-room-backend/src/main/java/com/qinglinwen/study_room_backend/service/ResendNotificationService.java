@@ -6,7 +6,6 @@ import com.qinglinwen.study_room_backend.config.NotificationProperties;
 import com.qinglinwen.study_room_backend.entity.SwapRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -17,17 +16,12 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Slf4j
-@Service("notificationServiceDelegate")
-@Primary
+@Service
 @ConditionalOnProperty(prefix = "app.notification.resend", name = "enabled", havingValue = "true")
 public class ResendNotificationService implements NotificationService {
-
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
     private final NotificationProperties notificationProperties;
     private final SwapRequestNotificationComposer composer;
