@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -13,11 +14,14 @@ public class AdminNotificationService {
 
     private final MailDeliveryService mailDeliveryService;
     private final NotificationDispatchExecutor notificationDispatchExecutor;
+    private final EmailTemplateService emailTemplateService;
 
     public AdminNotificationService(MailDeliveryService mailDeliveryService,
-                                    NotificationDispatchExecutor notificationDispatchExecutor) {
+                                    NotificationDispatchExecutor notificationDispatchExecutor,
+                                    EmailTemplateService emailTemplateService) {
         this.mailDeliveryService = mailDeliveryService;
         this.notificationDispatchExecutor = notificationDispatchExecutor;
+        this.emailTemplateService = emailTemplateService;
     }
 
     public void sendAdminTestEmail(User adminUser) {
@@ -25,16 +29,17 @@ public class AdminNotificationService {
             throw new IllegalArgumentException("Admin email is not configured");
         }
 
-        String subject = "【Study Room】Admin test email";
-        String text = "This is a test notification sent from the admin panel.\n\n"
-                + "Admin username: " + adminUser.getUsername() + "\n"
-                + "Admin email: " + adminUser.getEmail() + "\n"
-                + "Sent at: " + LocalDateTime.now() + "\n\n"
-                + "If you received this email, your Resend notification setup is working.";
+        LocalDateTime sentAt = LocalDateTime.now();
+        Map<String, String> variables = emailTemplateService.buildAdminTestVariables(
+                adminUser.getUsername(),
+                adminUser.getEmail(),
+                sentAt
+        );
+        RenderedEmailTemplate rendered = emailTemplateService.renderTemplate(EmailTemplateKey.ADMIN_TEST, variables);
 
         notificationDispatchExecutor.execute(() -> {
             try {
-                mailDeliveryService.sendTextEmail(adminUser.getEmail(), subject, text);
+                mailDeliveryService.sendTextEmail(adminUser.getEmail(), rendered.getSubject(), rendered.getBody());
             } catch (Exception ex) {
                 log.warn("Failed to send admin test email to {}", adminUser.getEmail(), ex);
             }

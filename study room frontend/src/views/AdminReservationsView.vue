@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { getAllReservations, deleteReservation, updateReservationStatus, sendAdminTestEmail } from '@/services/adminApi'
+import { getAllReservations, deleteReservation, updateReservationStatus } from '@/services/adminApi'
 import { getReservationStatusMeta, isReservedStatus } from '@/constants/reservationStatus'
 
 const router = useRouter()
@@ -12,7 +12,6 @@ const errorMessage = ref('')
 const successMessage = ref('')
 const cancellingId = ref(null)
 const updatingId = ref(null)
-const sendingTestEmail = ref(false)
 
 const recordsPerPage = 5
 const maxPageCount = 10
@@ -131,21 +130,6 @@ async function handleUpdateStatus(id, newStatus) {
   }
 }
 
-async function handleSendTestEmail() {
-  successMessage.value = ''
-  errorMessage.value = ''
-  sendingTestEmail.value = true
-
-  try {
-    const { data } = await sendAdminTestEmail()
-    successMessage.value = data.message || `Test email sent to ${data.targetEmail}.`
-  } catch (error) {
-    errorMessage.value = error.response?.data?.message || 'Failed to send the test email. Please try again later.'
-  } finally {
-    sendingTestEmail.value = false
-  }
-}
-
 function goBack() {
   router.push({ name: 'dashboard' })
 }
@@ -157,12 +141,9 @@ function goBack() {
       <div>
         <p class="eyebrow">Admin Panel</p>
         <h1>Reservation Management</h1>
-        <p>Review all reservations, apply filters, update booking status, or send yourself a test email.</p>
+        <p>Review all reservations, apply filters, and update booking status.</p>
       </div>
       <div class="header-actions">
-        <button class="primary-button" :disabled="sendingTestEmail" @click="handleSendTestEmail">
-          {{ sendingTestEmail ? 'Sending Test Email...' : 'Send Test Email to Me' }}
-        </button>
         <button class="ghost-button" @click="goBack">Back to Home</button>
       </div>
     </header>
@@ -279,7 +260,8 @@ function goBack() {
     </div>
 
     <nav class="admin-nav">
-      <router-link :to="{ name: 'AdminComments' }" class="nav-link">Manage Comments →</router-link>
+      <router-link :to="{ name: 'AdminComments' }" class="nav-link">Manage Comments</router-link>
+      <router-link :to="{ name: 'AdminNotifications' }" class="nav-link">Manage Notifications</router-link>
     </nav>
   </section>
 </template>

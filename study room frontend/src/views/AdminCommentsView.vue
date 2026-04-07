@@ -97,7 +97,8 @@ onMounted(() => {
     </div>
 
     <nav class="admin-nav">
-      <router-link :to="{ name: 'AdminReservations' }" class="nav-link">← Manage Reservations</router-link>
+      <router-link :to="{ name: 'AdminReservations' }" class="nav-link">Manage Reservations</router-link>
+      <router-link :to="{ name: 'AdminNotifications' }" class="nav-link">Manage Notifications</router-link>
     </nav>
   </section>
 </template>

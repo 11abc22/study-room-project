@@ -12,7 +12,8 @@ const todaySummary = computed(() => {
   if (isAdmin.value) {
     return [
       { title: 'Reservation Management', description: 'Admin: review other users\' reservations, filter records, cancel bookings, and update status.', action: 'Open Admin Panel', routeName: 'AdminReservations' },
-      { title: 'Comment Management', description: 'Admin: review and remove all seat comments.', action: 'Open Admin Panel', routeName: 'AdminComments' }
+      { title: 'Comment Management', description: 'Admin: review and remove all seat comments.', action: 'Open Admin Panel', routeName: 'AdminComments' },
+      { title: 'Notification Management', description: 'Admin: edit email templates for swap notifications and send yourself a test email.', action: 'Open Admin Panel', routeName: 'AdminNotifications' }
     ]
   }
 
@@ -39,7 +40,7 @@ const goTo = (routeName) => {
         <p class="eyebrow">Quick Access</p>
         <h1>Welcome back, {{ displayName }}</h1>
         <p class="hero-text">
-          {{ isAdmin ? 'Manage other users\' reservations and seat comments from one place.' : 'Access room browsing, reservations, and admin tools from one place.' }}
+          {{ isAdmin ? 'Manage reservations, comments, and notification templates from one place.' : 'Access room browsing, reservations, and admin tools from one place.' }}
         </p>
       </div>
       <button class="logout-button" @click="handleLogout">Sign Out</button>

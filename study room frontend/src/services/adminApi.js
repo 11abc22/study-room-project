@@ -23,3 +23,15 @@ export function deleteComment(id) {
 export function sendAdminTestEmail() {
   return apiClient.post('/api/admin/notifications/test-email')
 }
+
+export function getEmailTemplates() {
+  return apiClient.get('/api/admin/email-templates')
+}
+
+export function updateEmailTemplate(templateKey, payload) {
+  return apiClient.put(`/api/admin/email-templates/${templateKey}`, payload)
+}
+
+export function resetEmailTemplate(templateKey) {
+  return apiClient.delete(`/api/admin/email-templates/${templateKey}`)
+}
