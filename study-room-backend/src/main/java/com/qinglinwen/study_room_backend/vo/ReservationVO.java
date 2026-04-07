@@ -3,6 +3,7 @@ package com.qinglinwen.study_room_backend.vo;
 import lombok.Data;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 @Data
@@ -18,4 +19,10 @@ public class ReservationVO {
     private LocalTime startTime;
     private LocalTime endTime;
     private Integer status;
+    private String displayStatus;
+    private Long swapRequestId;
+    private String recordType;
+    private Boolean virtual;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

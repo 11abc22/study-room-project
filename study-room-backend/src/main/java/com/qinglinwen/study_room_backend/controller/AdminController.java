@@ -10,6 +10,8 @@ import com.qinglinwen.study_room_backend.repository.SeatCommentRepository;
 import com.qinglinwen.study_room_backend.repository.SeatRepository;
 import com.qinglinwen.study_room_backend.repository.StudyRoomRepository;
 import com.qinglinwen.study_room_backend.repository.UserRepository;
+import com.qinglinwen.study_room_backend.service.ReservationService;
+import com.qinglinwen.study_room_backend.service.ReservationStatus;
 import com.qinglinwen.study_room_backend.vo.ReservationVO;
 import com.qinglinwen.study_room_backend.vo.SeatCommentVO;
 import jakarta.transaction.Transactional;
@@ -24,7 +26,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = {"http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174", "http://127.0.0.1:5174"})
 public class AdminController {
 
     private static final String USER_ID_HEADER = "X-User-Id";
@@ -34,17 +36,20 @@ public class AdminController {
     private final SeatCommentRepository seatCommentRepository;
     private final SeatRepository seatRepository;
     private final StudyRoomRepository studyRoomRepository;
+    private final ReservationService reservationService;
 
     public AdminController(UserRepository userRepository,
                            ReservationRepository reservationRepository,
                            SeatCommentRepository seatCommentRepository,
                            SeatRepository seatRepository,
-                           StudyRoomRepository studyRoomRepository) {
+                           StudyRoomRepository studyRoomRepository,
+                           ReservationService reservationService) {
         this.userRepository = userRepository;
         this.reservationRepository = reservationRepository;
         this.seatCommentRepository = seatCommentRepository;
         this.seatRepository = seatRepository;
         this.studyRoomRepository = studyRoomRepository;
+        this.reservationService = reservationService;
     }
 
     private Long checkAdmin(String userIdHeader) {
@@ -95,7 +100,9 @@ public class AdminController {
         Reservation reservation = reservationRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Reservation not found"));
 
-        reservation.setStatus(2);
+        reservationService.ensureNoActiveSwapRequest(reservation.getId());
+
+        reservation.setStatus(ReservationStatus.CANCELLED);
         reservationRepository.save(reservation);
 
         return Map.of("message", "Reservation cancelled successfully");
@@ -117,6 +124,8 @@ public class AdminController {
 
         Reservation reservation = reservationRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Reservation not found"));
+
+        reservationService.ensureNoActiveSwapRequest(reservation.getId());
 
         reservation.setStatus(newStatus);
         reservationRepository.save(reservation);
@@ -205,19 +214,9 @@ public class AdminController {
         ).stream().collect(Collectors.toMap(User::getId, Function.identity()));
 
         return reservations.stream().map(r -> {
-            ReservationVO vo = new ReservationVO();
-            vo.setId(r.getId());
-            vo.setUserId(r.getUserId());
+            ReservationVO vo = reservationService.toReservationVO(r, roomMap, seatMap, r.getUserId());
             User user = userMap.get(r.getUserId());
             vo.setUsername(user != null ? user.getUsername() : "User " + r.getUserId());
-            vo.setRoomId(r.getRoomId());
-            vo.setRoomName(roomMap.get(r.getRoomId()));
-            vo.setSeatId(r.getSeatId());
-            vo.setSeatCode(seatMap.get(r.getSeatId()));
-            vo.setReserveDate(r.getReserveDate());
-            vo.setStartTime(r.getStartTime());
-            vo.setEndTime(r.getEndTime());
-            vo.setStatus(r.getStatus());
             return vo;
         }).collect(Collectors.toList());
     }

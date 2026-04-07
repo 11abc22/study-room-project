@@ -4,9 +4,12 @@ import com.qinglinwen.study_room_backend.dto.ReservationRequest;
 import com.qinglinwen.study_room_backend.entity.Reservation;
 import com.qinglinwen.study_room_backend.entity.Seat;
 import com.qinglinwen.study_room_backend.entity.StudyRoom;
+import com.qinglinwen.study_room_backend.entity.SwapRequest;
+import com.qinglinwen.study_room_backend.entity.User;
 import com.qinglinwen.study_room_backend.repository.ReservationRepository;
 import com.qinglinwen.study_room_backend.repository.SeatRepository;
 import com.qinglinwen.study_room_backend.repository.StudyRoomRepository;
+import com.qinglinwen.study_room_backend.repository.UserRepository;
 import com.qinglinwen.study_room_backend.vo.ReservationVO;
 import com.qinglinwen.study_room_backend.vo.RoomTimelineHourVO;
 import com.qinglinwen.study_room_backend.vo.SeatStatusVO;
@@ -25,13 +28,19 @@ public class ReservationService {
     private final ReservationRepository reservationRepository;
     private final SeatRepository seatRepository;
     private final StudyRoomRepository studyRoomRepository;
+    private final SwapRequestService swapRequestService;
+    private final UserRepository userRepository;
 
     public ReservationService(ReservationRepository reservationRepository,
                               SeatRepository seatRepository,
-                              StudyRoomRepository studyRoomRepository) {
+                              StudyRoomRepository studyRoomRepository,
+                              SwapRequestService swapRequestService,
+                              UserRepository userRepository) {
         this.reservationRepository = reservationRepository;
         this.seatRepository = seatRepository;
         this.studyRoomRepository = studyRoomRepository;
+        this.swapRequestService = swapRequestService;
+        this.userRepository = userRepository;
     }
 
     public List<SeatStatusVO> getSeatStatus(Long roomId, ReservationRequest req) {
@@ -40,17 +49,33 @@ public class ReservationService {
                 roomId, req.getReserveDate(), req.getStartTime(), req.getEndTime()
         );
 
-        Set<Long> reservedSeatIds = reservations.stream()
-                .map(Reservation::getSeatId)
-                .collect(Collectors.toSet());
+        Map<Long, Reservation> reservationBySeatId = reservations.stream()
+                .filter(reservation -> ReservationStatus.isReserved(reservation.getStatus()))
+                .collect(Collectors.toMap(
+                        Reservation::getSeatId,
+                        reservation -> reservation,
+                        (first, second) -> first
+                ));
+
+        Map<Long, String> usernameByUserId = userRepository.findAllById(
+                        reservations.stream().map(Reservation::getUserId).collect(Collectors.toSet())
+                ).stream()
+                .collect(Collectors.toMap(User::getId, User::getUsername));
 
         List<SeatStatusVO> result = new ArrayList<>();
         for (Seat seat : seats) {
+            Reservation matchedReservation = reservationBySeatId.get(seat.getId());
+
             SeatStatusVO vo = new SeatStatusVO();
             vo.setSeatId(seat.getId());
             vo.setSeatCode(seat.getSeatCode());
             vo.setSeatStatus(seat.getStatus());
-            vo.setReserved(reservedSeatIds.contains(seat.getId()));
+            vo.setReserved(matchedReservation != null);
+            if (matchedReservation != null) {
+                vo.setReservationId(matchedReservation.getId());
+                vo.setReservedUserId(matchedReservation.getUserId());
+                vo.setReservedUsername(usernameByUserId.get(matchedReservation.getUserId()));
+            }
             vo.setX(seat.getX());
             vo.setY(seat.getY());
             result.add(vo);
@@ -136,7 +161,7 @@ public class ReservationService {
         reservation.setReserveDate(req.getReserveDate());
         reservation.setStartTime(req.getStartTime());
         reservation.setEndTime(req.getEndTime());
-        reservation.setStatus(1);
+        reservation.setStatus(ReservationStatus.RESERVED);
 
         reservationRepository.save(reservation);
         return reservation.getId();
@@ -151,19 +176,7 @@ public class ReservationService {
         Map<Long, String> seatMap = seatRepository.findAll().stream()
                 .collect(Collectors.toMap(Seat::getId, Seat::getSeatCode));
 
-        return list.stream().map(r -> {
-            ReservationVO vo = new ReservationVO();
-            vo.setId(r.getId());
-            vo.setRoomId(r.getRoomId());
-            vo.setRoomName(roomMap.get(r.getRoomId()));
-            vo.setSeatId(r.getSeatId());
-            vo.setSeatCode(seatMap.get(r.getSeatId()));
-            vo.setReserveDate(r.getReserveDate());
-            vo.setStartTime(r.getStartTime());
-            vo.setEndTime(r.getEndTime());
-            vo.setStatus(r.getStatus());
-            return vo;
-        }).collect(Collectors.toList());
+        return list.stream().map(r -> toReservationVO(r, roomMap, seatMap, userId)).collect(Collectors.toList());
     }
 
     @Transactional
@@ -175,7 +188,9 @@ public class ReservationService {
             throw new RuntimeException("You do not have permission to cancel this reservation");
         }
 
-        reservation.setStatus(2);
+        ensureNoActiveSwapRequest(reservation.getId());
+
+        reservation.setStatus(ReservationStatus.CANCELLED);
         reservationRepository.save(reservation);
     }
 
@@ -189,6 +204,8 @@ public class ReservationService {
         if (!old.getUserId().equals(userId)) {
             throw new RuntimeException("You do not have permission to update this reservation");
         }
+
+        ensureNoActiveSwapRequest(old.getId());
 
         Seat seat = seatRepository.findById(req.getSeatId())
                 .orElseThrow(() -> new RuntimeException("Seat not found"));
@@ -224,6 +241,57 @@ public class ReservationService {
         old.setEndTime(req.getEndTime());
 
         reservationRepository.save(old);
+    }
+
+    public void ensureNoActiveSwapRequest(Long reservationId) {
+        if (swapRequestService.hasActiveSwapRequest(reservationId)) {
+            throw new RuntimeException("This reservation has an active swap request and cannot be modified");
+        }
+    }
+
+    public ReservationVO toReservationVO(Reservation reservation,
+                                         Map<Long, String> roomMap,
+                                         Map<Long, String> seatMap,
+                                         Long currentUserId) {
+        ReservationVO vo = new ReservationVO();
+        vo.setId(reservation.getId());
+        vo.setUserId(reservation.getUserId());
+        vo.setRoomId(reservation.getRoomId());
+        vo.setRoomName(roomMap.get(reservation.getRoomId()));
+        vo.setSeatId(reservation.getSeatId());
+        vo.setSeatCode(seatMap.get(reservation.getSeatId()));
+        vo.setReserveDate(reservation.getReserveDate());
+        vo.setStartTime(reservation.getStartTime());
+        vo.setEndTime(reservation.getEndTime());
+        vo.setStatus(reservation.getStatus());
+        vo.setDisplayStatus(resolveDisplayStatus(reservation, currentUserId, vo));
+        vo.setRecordType("RESERVATION");
+        vo.setVirtual(Boolean.FALSE);
+        vo.setCreatedAt(reservation.getCreatedAt());
+        vo.setUpdatedAt(reservation.getUpdatedAt());
+        return vo;
+    }
+
+    private String resolveDisplayStatus(Reservation reservation, Long currentUserId, ReservationVO vo) {
+        Optional<SwapRequest> asRequester = swapRequestService.findActiveByRequesterReservationId(reservation.getId());
+        if (asRequester.isPresent() && asRequester.get().getRequesterUserId().equals(currentUserId)) {
+            vo.setSwapRequestId(asRequester.get().getId());
+            return "REQUESTING";
+        }
+
+        Optional<SwapRequest> asTarget = swapRequestService.findActiveByTargetReservationId(reservation.getId());
+        if (asTarget.isPresent() && asTarget.get().getTargetUserId().equals(currentUserId)) {
+            vo.setSwapRequestId(asTarget.get().getId());
+            return "PENDING";
+        }
+
+        if (ReservationStatus.isReserved(reservation.getStatus())) {
+            return "RESERVED";
+        }
+        if (reservation.getStatus() != null && reservation.getStatus() == ReservationStatus.CANCELLED) {
+            return "CANCELLED";
+        }
+        return String.valueOf(reservation.getStatus());
     }
 
     private boolean overlaps(LocalTime reservationStart, LocalTime reservationEnd, LocalTime slotStart, LocalTime slotEnd) {

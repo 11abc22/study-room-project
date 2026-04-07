@@ -1,14 +1,18 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import RoomTimeline from '@/components/RoomTimeline.vue'
 import SeatMap from '@/components/SeatMap.vue'
 import SeatDetailDrawer from '@/components/SeatDetailDrawer.vue'
+import SwapRequestMessageModal from '@/components/SwapRequestMessageModal.vue'
 import { getRoomMapConfig } from '@/config/roomMapConfig'
 import { createSeatMapLayout, getSeatEnvironmentTags } from '@/utils/seatMapLayout'
 import { createReservation, getRoomSeatStatus, getRoomTimeline, getRooms } from '@/services/reservationApi'
+import { checkSwapRequestAvailability, createSwapRequest } from '@/services/swapRequestApi'
 
 const route = useRoute()
+const authStore = useAuthStore()
 const roomId = computed(() => Number(route.params.id))
 
 const room = ref(null)
@@ -25,6 +29,13 @@ const drawerVisible = ref(false)
 const roomTimeline = ref([])
 const currentSeatTimeline = ref([])
 const timelineSelectionSource = ref('room')
+const swapAvailability = ref({
+  canRequest: false,
+  reason: 'CAN_REQUEST'
+})
+const checkingSwapAvailability = ref(false)
+const swapModalVisible = ref(false)
+const swapSubmitting = ref(false)
 let seatStatusRefreshTimer = null
 
 const timeOptions = Array.from({ length: 16 }, (_, index) => {
@@ -64,6 +75,22 @@ const selectedSeatEnvironment = computed(() => {
   return getSeatEnvironmentTags(mappedSeat, roomLayout.value)
 })
 
+const selectedSeatLabel = computed(() => {
+  if (!selectedSeat.value) {
+    return '--'
+  }
+
+  return `${room.value?.name || 'Study Room'} - ${selectedSeat.value.seatCode}`
+})
+
+const selectedScheduleText = computed(() => {
+  if (!form.value.reserveDate || !form.value.startTime || !form.value.endTime) {
+    return '--'
+  }
+
+  return `${form.value.reserveDate} ${form.value.startTime} - ${form.value.endTime}`
+})
+
 function buildPayload(seatId = null) {
   return {
     roomId: roomId.value,
@@ -71,6 +98,26 @@ function buildPayload(seatId = null) {
     reserveDate: form.value.reserveDate,
     startTime: form.value.startTime,
     endTime: form.value.endTime
+  }
+}
+
+function buildSwapTargetPayload(seat = selectedSeat.value) {
+  if (!seat) {
+    return null
+  }
+
+  return {
+    roomId: roomId.value,
+    roomName: room.value?.name || 'Study Room',
+    seatId: seat.seatId,
+    seatCode: seat.seatCode,
+    reserveDate: form.value.reserveDate,
+    startTime: form.value.startTime,
+    endTime: form.value.endTime,
+    reservationId: seat.reservationId || seat.targetReservationId || null,
+    targetReservationId: seat.reservationId || seat.targetReservationId || null,
+    holderUserId: seat.userId || seat.reservedUserId || seat.holderUserId || null,
+    holderName: seat.username || seat.reservedUsername || seat.holderName || ''
   }
 }
 
@@ -286,10 +333,96 @@ async function reserveSeat(seat = selectedSeat.value) {
     successMessage.value = `${seat.seatCode} reserved successfully. ${data.message || ''}`.trim()
     await loadRoomTimeline()
     await querySeatStatus({ preserveSelectedSeat: true })
+    await loadSwapAvailability()
   } catch (error) {
     seatError.value = error.response?.data?.message || 'Failed to create the reservation. Please try again later.'
   } finally {
     reservingSeatId.value = null
+  }
+}
+
+function resetSwapAvailability() {
+  swapAvailability.value = {
+    canRequest: false,
+    reason: 'CAN_REQUEST'
+  }
+}
+
+async function loadSwapAvailability() {
+  if (!drawerVisible.value || !selectedSeat.value || !form.value.reserveDate || !form.value.startTime || !form.value.endTime) {
+    resetSwapAvailability()
+    return
+  }
+
+  if (selectedSeat.value.seatStatus !== 1 || !selectedSeat.value.reserved) {
+    resetSwapAvailability()
+    return
+  }
+
+  checkingSwapAvailability.value = true
+
+  try {
+    const target = buildSwapTargetPayload(selectedSeat.value)
+    const { data } = await checkSwapRequestAvailability({
+      reservationId: target?.targetReservationId ?? target?.reservationId ?? undefined,
+      roomId: target?.roomId,
+      seatId: target?.seatId,
+      reserveDate: target?.reserveDate,
+      startTime: target?.startTime,
+      endTime: target?.endTime,
+      holderUserId: target?.holderUserId
+    })
+
+    swapAvailability.value = data.data || data
+  } catch (error) {
+    resetSwapAvailability()
+    seatError.value = error.response?.data?.message || 'Failed to check swap availability. Please try again later.'
+  } finally {
+    checkingSwapAvailability.value = false
+  }
+}
+
+function openSwapModal() {
+  if (!selectedSeat.value || checkingSwapAvailability.value || !swapAvailability.value.canRequest) {
+    return
+  }
+
+  swapModalVisible.value = true
+}
+
+async function submitSwapRequest(message) {
+  const target = buildSwapTargetPayload(selectedSeat.value)
+
+  if (!target) {
+    return
+  }
+
+  swapSubmitting.value = true
+  seatError.value = ''
+  successMessage.value = ''
+
+  try {
+    await createSwapRequest({
+      targetReservationId: target.targetReservationId,
+      message,
+      requesterName: authStore.user?.username || authStore.user?.name || authStore.user?.email,
+      target
+    })
+    swapModalVisible.value = false
+    successMessage.value = `Swap request for ${target.seatCode} has been sent.`
+    await loadSwapAvailability()
+  } catch (error) {
+    const businessMessage = error.code === 'ALREADY_REJECTED'
+      ? 'You already requested this seat before.'
+      : error.code === 'HAS_ACTIVE_REQUEST'
+        ? 'You already have an active swap request in this time slot.'
+        : error.code === 'SEAT_LOCKED'
+          ? 'Another user is already requesting this seat.'
+          : error.message
+
+    seatError.value = error.response?.data?.message || businessMessage || 'Failed to send the swap request. Please try again later.'
+  } finally {
+    swapSubmitting.value = false
   }
 }
 
@@ -315,8 +448,10 @@ function handleSelectSeat(seat) {
 
 function closeSeatDrawer() {
   drawerVisible.value = false
+  swapModalVisible.value = false
   selectedSeat.value = null
   currentSeatTimeline.value = []
+  resetSwapAvailability()
 }
 
 function handleSeatTimelineLoaded(timeline) {
@@ -390,7 +525,20 @@ watch(
   (visible) => {
     if (!visible) {
       currentSeatTimeline.value = []
+      swapModalVisible.value = false
+      resetSwapAvailability()
     }
+  }
+)
+
+watch(
+  () => [drawerVisible.value, selectedSeat.value?.seatId, selectedSeat.value?.reserved, form.value.reserveDate, form.value.startTime, form.value.endTime],
+  async ([visible]) => {
+    if (!visible) {
+      return
+    }
+
+    await loadSwapAvailability()
   }
 )
 
@@ -525,11 +673,24 @@ onMounted(() => {
         :reserve-date="form.reserveDate"
         :start-time="form.startTime"
         :end-time="form.endTime"
+        :swap-availability="swapAvailability"
+        :checking-swap-availability="checkingSwapAvailability"
+        :swap-submitting="swapSubmitting"
         @close="closeSeatDrawer"
         @confirm-reserve="reserveSeat"
+        @request-swap="openSwapModal"
         @update-time-range="updateTimeRange"
         @timeline-hour-click="(hour) => handleTimelineHourClick(hour, 'seat')"
         @seat-timeline-loaded="handleSeatTimelineLoaded"
+      />
+
+      <SwapRequestMessageModal
+        :visible="swapModalVisible"
+        :seat-label="selectedSeatLabel"
+        :schedule-text="selectedScheduleText"
+        :submitting="swapSubmitting"
+        @close="swapModalVisible = false"
+        @confirm="submitSwapRequest"
       />
     </template>
   </section>
