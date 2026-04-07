@@ -10,6 +10,7 @@ import com.qinglinwen.study_room_backend.repository.SeatCommentRepository;
 import com.qinglinwen.study_room_backend.repository.SeatRepository;
 import com.qinglinwen.study_room_backend.repository.StudyRoomRepository;
 import com.qinglinwen.study_room_backend.repository.UserRepository;
+import com.qinglinwen.study_room_backend.service.AdminNotificationService;
 import com.qinglinwen.study_room_backend.service.ReservationService;
 import com.qinglinwen.study_room_backend.service.ReservationStatus;
 import com.qinglinwen.study_room_backend.vo.ReservationVO;
@@ -37,22 +38,25 @@ public class AdminController {
     private final SeatRepository seatRepository;
     private final StudyRoomRepository studyRoomRepository;
     private final ReservationService reservationService;
+    private final AdminNotificationService adminNotificationService;
 
     public AdminController(UserRepository userRepository,
                            ReservationRepository reservationRepository,
                            SeatCommentRepository seatCommentRepository,
                            SeatRepository seatRepository,
                            StudyRoomRepository studyRoomRepository,
-                           ReservationService reservationService) {
+                           ReservationService reservationService,
+                           AdminNotificationService adminNotificationService) {
         this.userRepository = userRepository;
         this.reservationRepository = reservationRepository;
         this.seatCommentRepository = seatCommentRepository;
         this.seatRepository = seatRepository;
         this.studyRoomRepository = studyRoomRepository;
         this.reservationService = reservationService;
+        this.adminNotificationService = adminNotificationService;
     }
 
-    private Long checkAdmin(String userIdHeader) {
+    private User requireAdmin(String userIdHeader) {
         Long userId = parseUserId(userIdHeader);
 
         User user = userRepository.findById(userId)
@@ -62,7 +66,7 @@ public class AdminController {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin access required");
         }
 
-        return userId;
+        return user;
     }
 
     private Long parseUserId(String userIdHeader) {
@@ -83,7 +87,7 @@ public class AdminController {
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) String date) {
 
-        checkAdmin(userIdHeader);
+        requireAdmin(userIdHeader);
 
         List<Reservation> reservations = fetchReservations(userId, status, date);
         return enrichReservations(reservations);
@@ -95,7 +99,7 @@ public class AdminController {
             @RequestHeader(value = USER_ID_HEADER, required = false) String userIdHeader,
             @PathVariable Long id) {
 
-        checkAdmin(userIdHeader);
+        requireAdmin(userIdHeader);
 
         Reservation reservation = reservationRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Reservation not found"));
@@ -115,7 +119,7 @@ public class AdminController {
             @PathVariable Long id,
             @RequestBody Map<String, Integer> body) {
 
-        checkAdmin(userIdHeader);
+        requireAdmin(userIdHeader);
 
         Integer newStatus = body.get("status");
         if (newStatus == null) {
@@ -137,7 +141,7 @@ public class AdminController {
     public List<SeatCommentVO> listComments(
             @RequestHeader(value = USER_ID_HEADER, required = false) String userIdHeader) {
 
-        checkAdmin(userIdHeader);
+        requireAdmin(userIdHeader);
 
         List<SeatComment> comments = seatCommentRepository.findAll();
         Map<Long, User> userMap = userRepository.findAllById(
@@ -155,7 +159,7 @@ public class AdminController {
             @RequestHeader(value = USER_ID_HEADER, required = false) String userIdHeader,
             @PathVariable Long id) {
 
-        checkAdmin(userIdHeader);
+        requireAdmin(userIdHeader);
 
         SeatComment comment = seatCommentRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Comment not found"));
@@ -163,6 +167,19 @@ public class AdminController {
         seatCommentRepository.delete(comment);
 
         return Map.of("message", "Comment deleted successfully");
+    }
+
+    @PostMapping("/notifications/test-email")
+    public Map<String, Object> sendTestEmail(
+            @RequestHeader(value = USER_ID_HEADER, required = false) String userIdHeader) {
+
+        User adminUser = requireAdmin(userIdHeader);
+        adminNotificationService.sendAdminTestEmail(adminUser);
+
+        return Map.of(
+                "message", "Test email has been queued for delivery",
+                "targetEmail", adminUser.getEmail()
+        );
     }
 
     private List<Reservation> fetchReservations(Long userId, Integer status, String date) {

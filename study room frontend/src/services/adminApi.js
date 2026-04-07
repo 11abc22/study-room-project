@@ -19,3 +19,7 @@ export function getAllComments() {
 export function deleteComment(id) {
   return apiClient.delete(`/api/admin/comments/${id}`)
 }
+
+export function sendAdminTestEmail() {
+  return apiClient.post('/api/admin/notifications/test-email')
+}
