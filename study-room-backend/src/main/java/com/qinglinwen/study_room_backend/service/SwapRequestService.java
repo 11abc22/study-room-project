@@ -121,11 +121,18 @@ public class SwapRequestService {
         Reservation targetReservation = getLockedActiveReservation(swapRequest.getTargetReservationId());
         validateAlignedReservations(requesterReservation, targetReservation);
 
-        requesterReservation.setSeatId(targetReservation.getSeatId());
-        requesterReservation.setRoomId(targetReservation.getRoomId());
+        Long requesterOriginalSeatId = requesterReservation.getSeatId();
+        Long requesterOriginalRoomId = requesterReservation.getRoomId();
+        Long targetOriginalSeatId = targetReservation.getSeatId();
+        Long targetOriginalRoomId = targetReservation.getRoomId();
+
+        requesterReservation.setSeatId(targetOriginalSeatId);
+        requesterReservation.setRoomId(targetOriginalRoomId);
         requesterReservation.setStatus(ReservationStatus.RESERVED);
 
-        targetReservation.setStatus(ReservationStatus.CANCELLED);
+        targetReservation.setSeatId(requesterOriginalSeatId);
+        targetReservation.setRoomId(requesterOriginalRoomId);
+        targetReservation.setStatus(ReservationStatus.RESERVED);
 
         reservationRepository.save(requesterReservation);
         reservationRepository.save(targetReservation);
