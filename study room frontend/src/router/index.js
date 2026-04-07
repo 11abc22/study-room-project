@@ -59,12 +59,23 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const authStore = useAuthStore()
+  const isAdmin = authStore.user?.username === 'admin'
+  const adminRouteNames = new Set(['AdminReservations', 'AdminComments'])
+  const bookingRouteNames = new Set(['rooms', 'room-detail', 'my-reservations'])
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     return { name: 'login' }
   }
 
   if ((to.name === 'login' || to.name === 'register') && authStore.isAuthenticated) {
+    return { name: 'dashboard' }
+  }
+
+  if (isAdmin && bookingRouteNames.has(String(to.name))) {
+    return { name: 'AdminReservations' }
+  }
+
+  if (!isAdmin && adminRouteNames.has(String(to.name))) {
     return { name: 'dashboard' }
   }
 

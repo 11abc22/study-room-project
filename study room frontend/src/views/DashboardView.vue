@@ -9,17 +9,17 @@ const router = useRouter()
 const displayName = computed(() => authStore.user?.username || authStore.user?.email || 'Guest')
 const isAdmin = computed(() => authStore.user?.username === 'admin')
 const todaySummary = computed(() => {
-  const items = [
+  if (isAdmin.value) {
+    return [
+      { title: 'Reservation Management', description: 'Admin: review other users\' reservations, filter records, cancel bookings, and update status.', action: 'Open Admin Panel', routeName: 'AdminReservations' },
+      { title: 'Comment Management', description: 'Admin: review and remove all seat comments.', action: 'Open Admin Panel', routeName: 'AdminComments' }
+    ]
+  }
+
+  return [
     { title: 'Study Rooms', description: 'Browse available study rooms, locations, and room details.', action: 'Open Rooms', routeName: 'rooms' },
     { title: 'My Reservations', description: 'Review your current reservations and manage upcoming bookings.', action: 'View Reservations', routeName: 'my-reservations' }
   ]
-  if (isAdmin.value) {
-    items.push(
-      { title: 'Reservation Management', description: 'Admin: review all reservations, filter records, cancel bookings, and update status.', action: 'Open Admin Panel', routeName: 'AdminReservations' },
-      { title: 'Comment Management', description: 'Admin: review and remove all seat comments.', action: 'Open Admin Panel', routeName: 'AdminComments' }
-    )
-  }
-  return items
 })
 
 const handleLogout = () => {
@@ -39,7 +39,7 @@ const goTo = (routeName) => {
         <p class="eyebrow">Quick Access</p>
         <h1>Welcome back, {{ displayName }}</h1>
         <p class="hero-text">
-          Access room browsing, reservations, and admin tools from one place.
+          {{ isAdmin ? 'Manage other users\' reservations and seat comments from one place.' : 'Access room browsing, reservations, and admin tools from one place.' }}
         </p>
       </div>
       <button class="logout-button" @click="handleLogout">Sign Out</button>
